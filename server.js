@@ -81,6 +81,72 @@ app.get('/api/jira/me', async (req, res) => {
   }
 });
 
+// Cuenta issues creadas vs resueltas para un proyecto en una ventana de días.
+// No trae el detalle de cada issue todavía (eso vendrá después) — este tramo
+// solo confirma que las búsquedas JQL funcionan desde el proxy.
+//
+// Ejemplo: /api/jira/issues?project=ITRKFC&days=30
+app.get('/api/jira/issues', async (req, res) => {
+  if (!JIRA_SITE_URL || !JIRA_EMAIL || !JIRA_API_TOKEN) {
+    return res.status(500).json({ ok: false, error: 'Faltan variables de entorno de Jira en el servidor del proxy.' });
+  }
+
+  const project = req.query.project;
+  const days = parseInt(req.query.days, 10) || 30;
+
+  if (!project) {
+    return res.status(400).json({ ok: false, error: 'Falta el parámetro ?project= (ej: ITRKFC)' });
+  }
+
+  // Jira retiró el "total" del endpoint de búsqueda clásico; el reemplazo
+  // oficial es este endpoint dedicado a contar (POST, con la JQL en el body).
+  async function jqlCount(jql) {
+    const url = `${JIRA_SITE_URL}/rest/api/3/search/approximate-count`;
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: jiraAuthHeader(),
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ jql }),
+    });
+    const text = await r.text();
+    let body;
+    try { body = JSON.parse(text); } catch { body = text; }
+    if (!r.ok) {
+      const err = new Error(`Jira respondió ${r.status} para JQL: ${jql}`);
+      err.jiraStatus = r.status;
+      err.jiraBody = body;
+      throw err;
+    }
+    if (typeof body?.count !== 'number') {
+      const err = new Error(`Respuesta inesperada de approximate-count (sin campo "count") para JQL: ${jql}`);
+      err.jiraStatus = 502;
+      err.jiraBody = body;
+      throw err;
+    }
+    return body.count;
+  }
+
+  const jqlCreated = `project = "${project}" AND created >= -${days}d`;
+  const jqlResolved = `project = "${project}" AND resolutiondate >= -${days}d`;
+
+  try {
+    const [created, resolved] = await Promise.all([
+      jqlCount(jqlCreated),
+      jqlCount(jqlResolved),
+    ]);
+    res.json({ ok: true, project, days, created, resolved });
+  } catch (err) {
+    res.status(err.jiraStatus || 502).json({
+      ok: false,
+      error: err.message,
+      jiraBody: err.jiraBody,
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`\nProxy escuchando en http://localhost:${PORT}`);
   console.log(`Prueba en el navegador: http://localhost:${PORT}/api/jira/me\n`);
