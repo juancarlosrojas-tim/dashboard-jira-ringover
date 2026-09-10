@@ -195,8 +195,8 @@
     try {
       const r = await fetch('/api/jira/me');
       const data = await r.json();
-      if (data.ok && data.user) {
-        el.innerHTML = `<span class="dot"></span>Conectado como ${data.user.displayName || data.user.emailAddress || 'usuario'}`;
+      if (data.ok) {
+        el.innerHTML = `<span class="dot"></span>Conectado como ${data.displayName || data.email || 'usuario'}`;
         el.className = 'ok';
       } else {
         el.innerHTML = `<span class="dot"></span>Sin conexión con Jira`;

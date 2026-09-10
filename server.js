@@ -89,6 +89,54 @@ app.get('/api/jira/me', async (req, res) => {
   }
 });
 
+// Diagnóstico: muestra, para issues recientes de un proyecto, todos los
+// customfields con valor (id + nombre humano + valor), para identificar el
+// id real de un campo cuando no sabemos su nombre exacto (p.ej. "tipología").
+// Ejemplo: /api/jira/debug-fields?project=ITRKFC
+app.get('/api/jira/debug-fields', async (req, res) => {
+  if (!JIRA_SITE_URL || !JIRA_EMAIL || !JIRA_API_TOKEN) {
+    return res.status(500).json({ ok: false, error: 'Faltan variables de entorno de Jira en el servidor del proxy.' });
+  }
+  const project = req.query.project || 'ITRKFC';
+  try {
+    const r = await fetch(`${JIRA_SITE_URL}/rest/api/3/search/jql`, {
+      method: 'POST',
+      headers: {
+        Authorization: jiraAuthHeader(),
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jql: `project = "${project}" ORDER BY created DESC`,
+        fields: ['*all'],
+        maxResults: 5,
+        expand: ['names'],
+      }),
+    });
+    const text = await r.text();
+    let body;
+    try { body = JSON.parse(text); } catch { body = text; }
+    if (!r.ok) {
+      return res.status(r.status).json({ ok: false, jiraBody: body });
+    }
+
+    const names = body.names || {};
+    const sample = (body.issues || []).map((iss) => {
+      const customFields = {};
+      for (const [fid, val] of Object.entries(iss.fields || {})) {
+        if (fid.startsWith('customfield_') && val !== null && val !== undefined) {
+          customFields[fid] = { name: names[fid] || null, value: val };
+        }
+      }
+      return { key: iss.key, customFields };
+    });
+
+    res.json({ ok: true, project, sample });
+  } catch (err) {
+    res.status(502).json({ ok: false, error: err.message });
+  }
+});
+
 // Cuenta issues creadas vs resueltas para un proyecto en una ventana de días.
 // No trae el detalle de cada issue todavía (eso vendrá después) — este tramo
 // solo confirma que las búsquedas JQL funcionan desde el proxy.
