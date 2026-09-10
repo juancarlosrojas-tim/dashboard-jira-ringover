@@ -20,6 +20,22 @@ app.get('/health', (req, res) => {
   res.json({ ok: true, service: 'jira-ringover-proxy', time: new Date().toISOString() });
 });
 
+app.get('/', (req, res) => {
+  res.type('html').send(`
+    <html>
+      <head><title>Dashboard Jira + Ringover — Proxy</title></head>
+      <body style="font-family: sans-serif; max-width: 640px; margin: 60px auto; line-height: 1.6;">
+        <h2>✅ Proxy activo</h2>
+        <p>Este servidor está corriendo, pero no es el dashboard visual todavía — eso viene en un paso posterior. Por ahora expone estos endpoints:</p>
+        <ul>
+          <li><a href="/health">/health</a> — estado del servidor</li>
+          <li><a href="/api/jira/me">/api/jira/me</a> — prueba de conexión a Jira (tu usuario y accountId)</li>
+        </ul>
+      </body>
+    </html>
+  `);
+});
+
 app.get('/api/jira/me', async (req, res) => {
   if (!JIRA_SITE_URL || !JIRA_EMAIL || !JIRA_API_TOKEN) {
     return res.status(500).json({
