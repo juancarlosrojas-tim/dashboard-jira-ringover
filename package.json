@@ -1,0 +1,17 @@
+{
+  "name": "jira-ringover-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Dashboard integrado Jira + Ringover (reescritura desde cero)",
+  "scripts": {
+    "test:jira": "node scripts/test-jira-connection.js",
+    "test:ringover": "node scripts/test-ringover-connection.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "cors": "^2.8.5"
+  }
+}
