@@ -202,24 +202,36 @@ function isExcluded(displayName) {
   return EXCLUDED_TECHNICIANS.some((ex) => n.includes(ex.toLowerCase()));
 }
 
-// El scoring viene en dos escalas mezcladas (1-10 y 1-100) — se normaliza
-// igual que en el dashboard anterior: > 10 se divide entre 10.
+// El scoring viene en escalas mezcladas (a veces 1-10, a veces cientos) — se
+// divide entre 10 REPETIDAMENTE hasta caer entre 1 y 10 (76→7,6 ; 775→7,75).
 function normalizeScoring(raw) {
-  const n = typeof raw === 'number' ? raw : parseFloat(raw);
+  let n = typeof raw === 'number' ? raw : parseFloat(raw);
   if (!Number.isFinite(n)) return null;
-  return n > 10 ? n / 10 : n;
+  let guard = 0;
+  while (n > 10 && guard < 10) {
+    n = n / 10;
+    guard += 1;
+  }
+  return n;
 }
 
-const FCR_MAX_MINUTES = 60;
+// Etiquetas internas permitidas — no cuentan como escalada a partner.
+// Riesgo_* es un comodín (Riesgo_bajo, Riesgo_medio, Riesgo_alto, ...).
+const INTERNAL_LABELS = ['QA_Desc_Done', 'Datafonos_triaje', 'ERROR_ESCALADO'];
 
-// FCR = resuelta en menos de 1 hora desde que se creó. Los nombres de estado
-// (L2 - Resuelta / Partner Resuelto / Desestimado) ya no sirven como criterio
-// porque toda resolución en este proyecto pasa por L2 — se cambió a esta regla
-// por decisión explícita de Juan Carlos (10 sept 2026).
+function isInternalLabel(label) {
+  const l = (label || '').toLowerCase();
+  if (l.startsWith('riesgo_')) return true;
+  return INTERNAL_LABELS.some((allowed) => l === allowed.toLowerCase());
+}
+
+// FCR = resuelta SIN ninguna etiqueta de partner. Las etiquetas internas
+// (arriba) no cuentan como partner; cualquier otra etiqueta sí descalifica.
+// Regla definitiva dictada por Juan Carlos (10 sept 2026), reemplaza el
+// criterio de "resuelta en menos de 1 hora" usado provisionalmente antes.
 function isFCR(issue) {
-  if (!issue.created || !issue.resolved) return false;
-  const minutes = (new Date(issue.resolved).getTime() - new Date(issue.created).getTime()) / 60000;
-  return minutes >= 0 && minutes <= FCR_MAX_MINUTES;
+  const labels = issue.labels || [];
+  return labels.every(isInternalLabel);
 }
 
 // Trae TODAS las issues de un proyecto tocadas en la ventana de días (creadas
