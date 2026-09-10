@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dashboard Jira + Ringover</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page:        #f9f9f7;
+    --surface-1:   #fcfcfb;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --border:      rgba(11,11,11,0.10);
+    --series-1:    #2a78d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page:        #0d0d0d;
+      --surface-1:   #1a1a19;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --border:      rgba(255,255,255,0.10);
+      --series-1:    #3987e5;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 48px;
+    background: var(--page);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+
+  header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 20px; }
+  h1 { font-size: 20px; margin: 0; }
+  #whoami { font-size: 13px; color: var(--text-secondary); }
+
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+  }
+  .controls label { font-size: 13px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 4px; }
+  .controls select {
+    font: inherit; font-size: 14px; padding: 6px 8px; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--surface-1); color: var(--text-primary);
+  }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+  .tile {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .tile .label { font-size: 13px; color: var(--text-secondary); }
+  .tile .value {
+    font-size: 32px; font-weight: 600; margin-top: 6px;
+    font-variant-numeric: proportional-nums;
+  }
+  .tile.accent .value { color: var(--series-1); }
+
+  #status { font-size: 13px; color: var(--text-muted); margin-top: 16px; }
+  #status.error { color: #e34948; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Dashboard Jira + Ringover</h1>
+      <span id="whoami">Cargando…</span>
+    </header>
+
+    <div class="controls">
+      <label>Proyecto
+        <select id="project">
+          <option value="ITRKFC">KFC (ITRKFC)</option>
+          <option value="ITHOSP">Hospitality (ITHOSP)</option>
+          <option value="HLPGIHAR">Genéricos (HLPGIHAR)</option>
+          <option value="HLPPRPAY">Prosegur (HLPPRPAY)</option>
+        </select>
+      </label>
+      <label>Período
+        <select id="days">
+          <option value="7">Últimos 7 días</option>
+          <option value="30" selected>Últimos 30 días</option>
+          <option value="90">Últimos 90 días</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="tiles">
+      <div class="tile">
+        <div class="label">Issues creadas</div>
+        <div class="value" id="created">—</div>
+      </div>
+      <div class="tile">
+        <div class="label">Issues resueltas</div>
+        <div class="value" id="resolved">—</div>
+      </div>
+      <div class="tile accent">
+        <div class="label">Tasa de resolución</div>
+        <div class="value" id="rate">—</div>
+      </div>
+    </div>
+
+    <div id="status"></div>
+  </div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const statusEl = $('status');
+
+  function setStatus(msg, isError) {
+    statusEl.textContent = msg || '';
+    statusEl.classList.toggle('error', !!isError);
+  }
+
+  async function loadWhoami() {
+    try {
+      const r = await fetch('/api/jira/me');
+      const d = await r.json();
+      $('whoami').textContent = d.ok ? `Conectado como ${d.displayName}` : 'Sin conexión a Jira';
+    } catch {
+      $('whoami').textContent = 'Sin conexión al proxy';
+    }
+  }
+
+  async function loadIssues() {
+    const project = $('project').value;
+    const days = $('days').value;
+    $('created').textContent = '…';
+    $('resolved').textContent = '…';
+    $('rate').textContent = '…';
+    setStatus('Cargando datos de ' + project + '…');
+
+    try {
+      const r = await fetch(`/api/jira/issues?project=${encodeURIComponent(project)}&days=${days}`);
+      const d = await r.json();
+
+      if (!d.ok) {
+        setStatus('Error: ' + (d.error || 'respuesta inesperada de Jira'), true);
+        $('created').textContent = '—';
+        $('resolved').textContent = '—';
+        $('rate').textContent = '—';
+        return;
+      }
+
+      $('created').textContent = d.created.toLocaleString('es-ES');
+      $('resolved').textContent = d.resolved.toLocaleString('es-ES');
+      $('rate').textContent = d.created > 0
+        ? Math.round((d.resolved / d.created) * 100) + '%'
+        : '—';
+      setStatus(`Actualizado · ${project} · últimos ${days} días`);
+    } catch (err) {
+      setStatus('No se pudo contactar al proxy: ' + err.message, true);
+    }
+  }
+
+  $('project').addEventListener('change', loadIssues);
+  $('days').addEventListener('change', loadIssues);
+
+  loadWhoami();
+  loadIssues();
+</script>
+</body>
+</html>

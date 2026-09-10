@@ -6,11 +6,19 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const { JIRA_SITE_URL, JIRA_EMAIL, JIRA_API_TOKEN, PORT = 3001 } = process.env;
 
 const app = express();
 app.use(cors());
+app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/dashboard', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
 
 function jiraAuthHeader() {
   return 'Basic ' + Buffer.from(`${JIRA_EMAIL}:${JIRA_API_TOKEN}`).toString('base64');
