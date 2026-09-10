@@ -3,336 +3,351 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Dashboard Jira + Ringover</title>
+<title>Dashboard Soporte — Jira</title>
 <style>
   :root {
-    color-scheme: light;
-    --page:        #f9f9f7;
-    --surface-1:   #fcfcfb;
-    --text-primary:   #0b0b0b;
-    --text-secondary: #52514e;
-    --text-muted:     #898781;
-    --border:      rgba(11,11,11,0.10);
-    --series-1:    #2a78d6;
-    --good:        #0ca30c;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      color-scheme: dark;
-      --page:        #0d0d0d;
-      --surface-1:   #1a1a19;
-      --text-primary:   #ffffff;
-      --text-secondary: #c3c2b7;
-      --text-muted:     #898781;
-      --border:      rgba(255,255,255,0.10);
-      --series-1:    #3987e5;
-      --good:        #0ca30c;
-    }
+    color-scheme: dark;
+    --page:        #0f172a;
+    --surface-1:   #1e293b;
+    --surface-2:   #16213a;
+    --text-primary:   #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted:     #64748b;
+    --border:      rgba(255,255,255,0.08);
+    --accent:      #60a5fa;
+    --good:        #22c55e;
+    --warning:     #f59e0b;
+    --critical:    #ef4444;
   }
 
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    padding: 24px 16px 48px;
+    padding: 24px 16px 56px;
     background: var(--page);
     color: var(--text-primary);
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   }
-  .wrap { max-width: 1000px; margin: 0 auto; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
 
-  header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 16px; }
-  h1 { font-size: 20px; margin: 0; }
+  header {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 12px; margin-bottom: 20px;
+  }
+  h1 { font-size: 20px; margin: 0; font-weight: 600; }
   #whoami { font-size: 13px; color: var(--text-secondary); }
+  #whoami .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; background: var(--text-muted); }
+  #whoami.ok .dot { background: var(--good); }
+  #whoami.err .dot { background: var(--critical); }
 
-  nav.tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 16px; margin-bottom: 18px;
+  }
+  .controls label { font-size: 13px; color: var(--text-secondary); }
+  .controls input[type="month"] {
+    font: inherit; font-size: 14px; padding: 6px 10px; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--surface-2); color: var(--text-primary);
+  }
+  .controls button {
+    font: inherit; font-size: 13px; font-weight: 500; padding: 7px 14px; border-radius: 6px;
+    border: 1px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer;
+  }
+  .controls button:hover { background: rgba(96,165,250,0.12); }
+  .controls .msg { font-size: 13px; color: var(--text-secondary); }
+  .controls .msg.err { color: var(--critical); }
+
+  nav.tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 18px; border-bottom: 1px solid var(--border); }
   nav.tabs button {
     font: inherit; font-size: 14px; font-weight: 500; padding: 10px 16px;
     background: none; border: none; cursor: pointer; color: var(--text-secondary);
-    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;
   }
-  nav.tabs button.active { color: var(--text-primary); border-bottom-color: var(--series-1); }
+  nav.tabs button.active { color: var(--text-primary); border-bottom-color: var(--accent); }
 
   .panel { display: none; }
   .panel.active { display: block; }
 
-  .controls {
-    display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
-    background: var(--surface-1);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 12px 16px;
-    margin-bottom: 20px;
-  }
-  .controls label { font-size: 13px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 4px; }
-  .controls select {
-    font: inherit; font-size: 14px; padding: 6px 8px; border-radius: 6px;
-    border: 1px solid var(--border); background: var(--surface-1); color: var(--text-primary);
-  }
-
-  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
   .tile {
-    background: var(--surface-1);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px;
   }
-  .tile .label { font-size: 13px; color: var(--text-secondary); }
-  .tile .value {
-    font-size: 32px; font-weight: 600; margin-top: 6px;
-    font-variant-numeric: proportional-nums;
+  .tile .label { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
+  .tile .value { font-size: 26px; font-weight: 600; }
+  .tile .sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+  .tile.good .value { color: var(--good); }
+  .tile.warn .value { color: var(--warning); }
+  .tile.crit .value { color: var(--critical); }
+
+  h2.section-title { font-size: 15px; font-weight: 600; margin: 24px 0 10px; color: var(--text-primary); }
+  h2.section-title:first-child { margin-top: 0; }
+
+  table { width: 100%; border-collapse: collapse; background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 13px; }
+  thead th {
+    text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 12px;
+    padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--surface-2);
+    white-space: nowrap;
   }
-  .tile.accent .value { color: var(--series-1); }
+  tbody td { padding: 9px 12px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: rgba(255,255,255,0.03); }
+  td.name { font-variant-numeric: normal; font-weight: 500; }
+  td.num { text-align: right; }
+  .table-wrap { overflow-x: auto; margin-bottom: 20px; }
 
-  h2 { font-size: 15px; margin: 0 0 10px; color: var(--text-secondary); font-weight: 600; }
-
-  table.data {
-    width: 100%; border-collapse: collapse; background: var(--surface-1);
-    border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
-    font-size: 14px;
-  }
-  table.data th, table.data td {
-    text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border);
-  }
-  table.data th { color: var(--text-secondary); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
-  table.data td.num, table.data th.num { text-align: right; font-variant-numeric: tabular-nums; }
-  table.data tbody tr:last-child td { border-bottom: none; }
-  table.data tbody tr:hover { background: rgba(127,127,127,0.06); }
-
-  .project-row { display: grid; grid-template-columns: 1fr repeat(3, 120px); gap: 8px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--border); }
-  .project-row:last-child { border-bottom: none; }
-  .project-row .name { font-weight: 500; }
-  .project-row .num { text-align: right; font-variant-numeric: tabular-nums; }
-  .project-row .num .lbl { display: block; font-size: 11px; color: var(--text-muted); font-weight: 400; }
-
-  #status { font-size: 13px; color: var(--text-muted); margin-top: 16px; }
-  #status.error { color: #e34948; }
+  .empty { color: var(--text-muted); font-size: 13px; padding: 16px; text-align: center; }
+  .fcr-pct { font-weight: 600; }
+  .fcr-pct.good { color: var(--good); }
+  .fcr-pct.warn { color: var(--warning); }
+  .fcr-pct.crit { color: var(--critical); }
 </style>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <h1>Dashboard Jira + Ringover</h1>
-      <span id="whoami">Cargando…</span>
-    </header>
+<div class="wrap">
 
-    <nav class="tabs">
-      <button class="tab-btn active" data-tab="general">Dashboard</button>
-      <button class="tab-btn" data-tab="jira">Jira</button>
-    </nav>
+  <header>
+    <h1>Dashboard Soporte — Jira</h1>
+    <div id="whoami">Comprobando conexión…</div>
+  </header>
 
-    <!-- ===== Pestaña Dashboard: resumen general de todas las líneas de soporte ===== -->
-    <section class="panel active" id="panel-general">
-      <div class="controls">
-        <label>Período
-          <select id="general-days">
-            <option value="7">Últimos 7 días</option>
-            <option value="30" selected>Últimos 30 días</option>
-            <option value="90">Últimos 90 días</option>
-          </select>
-        </label>
-      </div>
-
-      <div class="tiles">
-        <div class="tile">
-          <div class="label">Issues creadas (total)</div>
-          <div class="value" id="gen-created">—</div>
-        </div>
-        <div class="tile">
-          <div class="label">Issues resueltas (total)</div>
-          <div class="value" id="gen-resolved">—</div>
-        </div>
-        <div class="tile accent">
-          <div class="label">Tasa de resolución</div>
-          <div class="value" id="gen-rate">—</div>
-        </div>
-      </div>
-
-      <h2>Por línea de soporte</h2>
-      <div class="data" id="gen-projects" style="background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;"></div>
-    </section>
-
-    <!-- ===== Pestaña Jira: análisis por proyecto y técnico ===== -->
-    <section class="panel" id="panel-jira">
-      <div class="controls">
-        <label>Proyecto
-          <select id="jira-project">
-            <option value="ITRKFC">KFC (ITRKFC)</option>
-            <option value="ITHOSP">Hospitality (ITHOSP)</option>
-            <option value="HLPGIHAR">Genéricos (HLPGIHAR)</option>
-            <option value="HLPPRPAY">Prosegur (HLPPRPAY)</option>
-          </select>
-        </label>
-        <label>Período
-          <select id="jira-days">
-            <option value="7">Últimos 7 días</option>
-            <option value="30" selected>Últimos 30 días</option>
-            <option value="90">Últimos 90 días</option>
-          </select>
-        </label>
-      </div>
-
-      <div class="tiles">
-        <div class="tile">
-          <div class="label">Issues creadas</div>
-          <div class="value" id="jira-created">—</div>
-        </div>
-        <div class="tile">
-          <div class="label">Issues resueltas</div>
-          <div class="value" id="jira-resolved">—</div>
-        </div>
-      </div>
-
-      <h2>Por técnico</h2>
-      <table class="data">
-        <thead>
-          <tr>
-            <th>Técnico</th>
-            <th class="num">Creadas</th>
-            <th class="num">Resueltas</th>
-            <th class="num">FCR</th>
-            <th class="num">Scoring</th>
-          </tr>
-        </thead>
-        <tbody id="jira-tech-body">
-          <tr><td colspan="5">Cargando…</td></tr>
-        </tbody>
-      </table>
-      <p style="font-size:12px; color: var(--text-muted);">Excluidos de este análisis: Juan Carlos Rojas, Cristina Martínez, Estefanía Fernández, Judit Ferrero. FCR = resuelta sin etiquetas de partner (las internas QA_Desc_Done, Riesgo_*, Datafonos_triaje y ERROR_ESCALADO no cuentan como partner).</p>
-    </section>
-
-    <div id="status"></div>
+  <div class="controls">
+    <label for="month">Mes</label>
+    <input type="month" id="month" />
+    <button id="reload">Actualizar</button>
+    <span class="msg" id="msg"></span>
   </div>
 
+  <nav class="tabs">
+    <button data-tab="resumen" class="active">Resumen</button>
+    <button data-tab="proyecto">Por proyecto</button>
+    <button data-tab="tecnico">Por técnico</button>
+    <button data-tab="escaladas">Escaladas</button>
+    <button data-tab="tipologia">Tipología</button>
+    <button data-tab="locales">Locales</button>
+  </nav>
+
+  <section class="panel active" id="panel-resumen">
+    <div class="tiles" id="tiles-resumen"></div>
+    <h2 class="section-title">Por proyecto</h2>
+    <div class="table-wrap" id="tabla-resumen-proyecto"></div>
+  </section>
+
+  <section class="panel" id="panel-proyecto">
+    <div class="table-wrap" id="tabla-proyecto"></div>
+  </section>
+
+  <section class="panel" id="panel-tecnico">
+    <div class="table-wrap" id="tabla-tecnico"></div>
+  </section>
+
+  <section class="panel" id="panel-escaladas">
+    <div class="tiles" id="tiles-escaladas"></div>
+    <h2 class="section-title">Por partner</h2>
+    <div class="table-wrap" id="tabla-partners"></div>
+  </section>
+
+  <section class="panel" id="panel-tipologia">
+    <div class="tiles" id="tiles-tipologia"></div>
+    <h2 class="section-title">Por familia</h2>
+    <div class="table-wrap" id="tabla-familias"></div>
+    <h2 class="section-title">Por categoría</h2>
+    <div class="table-wrap" id="tabla-categorias"></div>
+  </section>
+
+  <section class="panel" id="panel-locales">
+    <div class="tiles" id="tiles-locales"></div>
+    <h2 class="section-title">Por local</h2>
+    <div class="table-wrap" id="tabla-locales"></div>
+  </section>
+
+</div>
+
 <script>
-  const $ = (id) => document.getElementById(id);
-  const statusEl = $('status');
-  const PROJECTS = [
-    { code: 'ITRKFC', name: 'KFC' },
-    { code: 'ITHOSP', name: 'Hospitality' },
-    { code: 'HLPGIHAR', name: 'Genéricos' },
-    { code: 'HLPPRPAY', name: 'Prosegur' },
-  ];
+  const $ = (sel, root) => (root || document).querySelector(sel);
+  const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
 
-  function setStatus(msg, isError) {
-    statusEl.textContent = msg || '';
-    statusEl.classList.toggle('error', !!isError);
-  }
-
-  function fmt(n) { return (n ?? 0).toLocaleString('es-ES'); }
-
-  // ---------- Tabs ----------
-  document.querySelectorAll('.tab-btn').forEach((btn) => {
+  // --- Tabs ---
+  $$('nav.tabs button').forEach((btn) => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
-      document.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
+      $$('nav.tabs button').forEach((b) => b.classList.remove('active'));
+      $$('.panel').forEach((p) => p.classList.remove('active'));
       btn.classList.add('active');
-      $('panel-' + btn.dataset.tab).classList.add('active');
+      $('#panel-' + btn.dataset.tab).classList.add('active');
     });
   });
 
-  // ---------- Quién está conectado ----------
+  // --- Month default = current ---
+  const monthInput = $('#month');
+  const now = new Date();
+  monthInput.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  const msgEl = $('#msg');
+  function setMsg(text, isErr) {
+    msgEl.textContent = text || '';
+    msgEl.classList.toggle('err', !!isErr);
+  }
+
+  // --- Whoami ---
   async function loadWhoami() {
+    const el = $('#whoami');
     try {
       const r = await fetch('/api/jira/me');
-      const d = await r.json();
-      $('whoami').textContent = d.ok ? `Conectado como ${d.displayName}` : 'Sin conexión a Jira';
-    } catch {
-      $('whoami').textContent = 'Sin conexión al proxy';
-    }
-  }
-
-  // ---------- Pestaña Dashboard: todas las líneas de soporte ----------
-  async function loadGeneral() {
-    const days = $('general-days').value;
-    setStatus('Cargando resumen general…');
-    $('gen-projects').innerHTML = '';
-
-    let totalCreated = 0, totalResolved = 0;
-
-    for (const p of PROJECTS) {
-      const row = document.createElement('div');
-      row.className = 'project-row';
-      row.innerHTML = `
-        <div class="name">${p.name} <span style="color:var(--text-muted); font-weight:400;">(${p.code})</span></div>
-        <div class="num" data-created>… <span class="lbl">Creadas</span></div>
-        <div class="num" data-resolved>… <span class="lbl">Resueltas</span></div>
-        <div class="num" data-rate>… <span class="lbl">Tasa</span></div>
-      `;
-      $('gen-projects').appendChild(row);
-
-      try {
-        const r = await fetch(`/api/jira/issues?project=${p.code}&days=${days}`);
-        const d = await r.json();
-        if (d.ok) {
-          totalCreated += d.created;
-          totalResolved += d.resolved;
-          row.querySelector('[data-created]').innerHTML = `${fmt(d.created)}<span class="lbl">Creadas</span>`;
-          row.querySelector('[data-resolved]').innerHTML = `${fmt(d.resolved)}<span class="lbl">Resueltas</span>`;
-          const rate = d.created > 0 ? Math.round((d.resolved / d.created) * 100) + '%' : '—';
-          row.querySelector('[data-rate]').innerHTML = `${rate}<span class="lbl">Tasa</span>`;
-        } else {
-          row.querySelector('[data-created]').textContent = 'error';
-        }
-      } catch {
-        row.querySelector('[data-created]').textContent = 'error';
+      const data = await r.json();
+      if (data.ok && data.user) {
+        el.innerHTML = `<span class="dot"></span>Conectado como ${data.user.displayName || data.user.emailAddress || 'usuario'}`;
+        el.className = 'ok';
+      } else {
+        el.innerHTML = `<span class="dot"></span>Sin conexión con Jira`;
+        el.className = 'err';
       }
+    } catch {
+      el.innerHTML = `<span class="dot"></span>Sin conexión con el proxy`;
+      el.className = 'err';
     }
-
-    $('gen-created').textContent = fmt(totalCreated);
-    $('gen-resolved').textContent = fmt(totalResolved);
-    $('gen-rate').textContent = totalCreated > 0 ? Math.round((totalResolved / totalCreated) * 100) + '%' : '—';
-    setStatus(`Actualizado · últimos ${days} días`);
   }
 
-  // ---------- Pestaña Jira: proyecto + técnicos ----------
-  async function loadJira() {
-    const project = $('jira-project').value;
-    const days = $('jira-days').value;
-    $('jira-created').textContent = '…';
-    $('jira-resolved').textContent = '…';
-    $('jira-tech-body').innerHTML = '<tr><td colspan="5">Cargando…</td></tr>';
-    setStatus('Cargando datos de ' + project + '…');
+  // --- Helpers de formato ---
+  function fmt(n) { return (n === null || n === undefined) ? '—' : new Intl.NumberFormat('es-ES').format(n); }
+  function fmtPct(n) { return (n === null || n === undefined) ? '—' : `${n}%`; }
+  function fmtScoring(n) { return (n === null || n === undefined) ? '—' : n.toFixed(2); }
+  function pctClass(pct) {
+    if (pct === null || pct === undefined) return '';
+    if (pct >= 80) return 'good';
+    if (pct >= 50) return 'warn';
+    return 'crit';
+  }
 
+  const BLOQUE_COLS = [
+    { key: 'creadas', label: 'Creadas', num: true },
+    { key: 'resueltas', label: 'Resueltas', num: true },
+    { key: 'abiertas', label: 'Abiertas', num: true },
+    { key: 'fcrPct', label: 'FCR %', num: true, pct: true },
+    { key: 'escaladas', label: 'Escaladas', num: true },
+    { key: 'diasEscalada', label: 'Días esc. (media)', num: true },
+    { key: 'scoring', label: 'Scoring', num: true, scoring: true },
+  ];
+
+  function tableFromBloqueMap(map, nameLabel, container) {
+    const entries = Object.entries(map || {});
+    if (!entries.length) {
+      container.innerHTML = '<div class="empty">Sin datos para este mes.</div>';
+      return;
+    }
+    let html = '<table><thead><tr>';
+    html += `<th>${nameLabel}</th>`;
+    for (const c of BLOQUE_COLS) html += `<th>${c.label}</th>`;
+    html += '</tr></thead><tbody>';
+    for (const [name, b] of entries) {
+      html += '<tr>';
+      html += `<td class="name">${escapeHtml(name)}</td>`;
+      for (const c of BLOQUE_COLS) {
+        const v = b[c.key];
+        if (c.pct) {
+          html += `<td class="num"><span class="fcr-pct ${pctClass(v)}">${fmtPct(v)}</span></td>`;
+        } else if (c.scoring) {
+          html += `<td class="num">${fmtScoring(v)}</td>`;
+        } else {
+          html += `<td class="num">${fmt(v)}</td>`;
+        }
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  }
+
+  function tableFromPartners(map, container) {
+    const entries = Object.entries(map || {});
+    if (!entries.length) {
+      container.innerHTML = '<div class="empty">Sin escaladas este mes.</div>';
+      return;
+    }
+    let html = '<table><thead><tr><th>Partner</th><th>Nº escaladas</th><th>Días (media)</th></tr></thead><tbody>';
+    for (const [name, v] of entries) {
+      html += `<tr><td class="name">${escapeHtml(name)}</td><td class="num">${fmt(v.n)}</td><td class="num">${v.dias}</td></tr>`;
+    }
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function tile(label, value, extraClass, sub) {
+    return `<div class="tile ${extraClass || ''}"><div class="label">${label}</div><div class="value">${value}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>`;
+  }
+
+  function renderResumenTiles(total) {
+    $('#tiles-resumen').innerHTML =
+      tile('Creadas', fmt(total.creadas)) +
+      tile('Resueltas', fmt(total.resueltas)) +
+      tile('Abiertas', fmt(total.abiertas)) +
+      tile('FCR', fmt(total.fcr), '', `${fmtPct(total.fcrPct)} de resueltas`) +
+      tile('Escaladas', fmt(total.escaladas)) +
+      tile('Días esc. (media)', total.diasEscalada) +
+      tile('Scoring medio', fmtScoring(total.scoring), '', total.nScore ? `${total.nScore} valoradas` : 'sin valoraciones');
+  }
+
+  function renderEscaladasTiles(total) {
+    $('#tiles-escaladas').innerHTML =
+      tile('Escaladas', fmt(total.escaladas)) +
+      tile('Días esc. (media)', total.diasEscalada) +
+      tile('% sobre creadas', total.creadas ? `${round1((total.escaladas / total.creadas) * 100)}%` : '—');
+  }
+  function round1(x) { return Math.round(x * 10) / 10; }
+
+  function renderTipologiaTiles(data) {
+    $('#tiles-tipologia').innerHTML =
+      tile('Categorizadas', fmt(data.nCategorizadas)) +
+      tile('Sobre total', data.n ? `${round1((data.nCategorizadas / data.n) * 100)}%` : '—');
+  }
+
+  function renderLocalesTiles(data) {
+    $('#tiles-locales').innerHTML =
+      tile('Con local asociado', fmt(data.nConLocal)) +
+      tile('Sobre total', data.n ? `${round1((data.nConLocal / data.n) * 100)}%` : '—');
+  }
+
+  async function loadDashboard() {
+    const month = monthInput.value;
+    if (!month) return;
+    setMsg('Cargando datos de ' + month + '…', false);
     try {
-      const r = await fetch(`/api/jira/technicians?project=${encodeURIComponent(project)}&days=${days}`);
-      const d = await r.json();
-
-      if (!d.ok) {
-        setStatus('Error: ' + (d.error || 'respuesta inesperada de Jira'), true);
-        $('jira-tech-body').innerHTML = '<tr><td colspan="5">Error al cargar</td></tr>';
+      const r = await fetch(`/api/jira/dashboard?month=${encodeURIComponent(month)}`);
+      const data = await r.json();
+      if (!data.ok) {
+        setMsg(data.error || 'Error al cargar datos.', true);
         return;
       }
+      setMsg(`${fmt(data.n)} incidencias creadas en ${data.month}.`, false);
 
-      $('jira-created').textContent = fmt(d.totals.created);
-      $('jira-resolved').textContent = fmt(d.totals.resolved);
+      renderResumenTiles(data.total);
+      tableFromBloqueMap(data.proyectos, 'Proyecto', $('#tabla-resumen-proyecto'));
+      tableFromBloqueMap(data.proyectos, 'Proyecto', $('#tabla-proyecto'));
+      tableFromBloqueMap(data.tecnicos, 'Técnico', $('#tabla-tecnico'));
 
-      if (d.technicians.length === 0) {
-        $('jira-tech-body').innerHTML = '<tr><td colspan="5">Sin datos en este período</td></tr>';
-      } else {
-        $('jira-tech-body').innerHTML = d.technicians.map((t) => `
-          <tr>
-            <td>${t.technician}</td>
-            <td class="num">${fmt(t.created)}</td>
-            <td class="num">${fmt(t.resolved)}</td>
-            <td class="num">${t.fcrRate === null ? '—' : t.fcrRate + '%'}</td>
-            <td class="num">${t.avgScoring === null ? '—' : t.avgScoring}</td>
-          </tr>
-        `).join('');
-      }
+      renderEscaladasTiles(data.total);
+      tableFromPartners(data.partners, $('#tabla-partners'));
 
-      setStatus(`Actualizado · ${project} · últimos ${days} días`);
+      renderTipologiaTiles(data);
+      tableFromBloqueMap(data.familias, 'Familia', $('#tabla-familias'));
+      tableFromBloqueMap(data.categorias, 'Categoría', $('#tabla-categorias'));
+
+      renderLocalesTiles(data);
+      tableFromBloqueMap(data.locales, 'Local', $('#tabla-locales'));
     } catch (err) {
-      setStatus('No se pudo contactar al proxy: ' + err.message, true);
+      setMsg('Error de conexión con el proxy: ' + err.message, true);
     }
   }
 
-  $('general-days').addEventListener('change', loadGeneral);
-  $('jira-project').addEventListener('change', loadJira);
-  $('jira-days').addEventListener('change', loadJira);
+  $('#reload').addEventListener('click', loadDashboard);
+  monthInput.addEventListener('change', loadDashboard);
 
   loadWhoami();
-  loadGeneral();
-  loadJira();
+  loadDashboard();
 </script>
 </body>
 </html>
