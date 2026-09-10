@@ -99,6 +99,7 @@ app.get('/api/jira/debug-fields', async (req, res) => {
   }
   const project = req.query.project || 'ITRKFC';
   try {
+    // Paso 1: buscar issues recientes con TODOS sus campos.
     const r = await fetch(`${JIRA_SITE_URL}/rest/api/3/search/jql`, {
       method: 'POST',
       headers: {
@@ -110,18 +111,30 @@ app.get('/api/jira/debug-fields', async (req, res) => {
         jql: `project = "${project}" ORDER BY created DESC`,
         fields: ['*all'],
         maxResults: 5,
-        expand: ['names'],
       }),
     });
     const text = await r.text();
     let body;
     try { body = JSON.parse(text); } catch { body = text; }
     if (!r.ok) {
-      return res.status(r.status).json({ ok: false, jiraBody: body });
+      return res.status(r.status).json({ ok: false, step: 'search', jiraBody: body });
     }
 
-    const names = body.names || {};
-    const sample = (body.issues || []).map((iss) => {
+    const issues = body.issues || [];
+
+    // Paso 2: sacar el mapa id -> nombre humano desde un issue concreto.
+    let names = {};
+    if (issues[0]) {
+      const nr = await fetch(`${JIRA_SITE_URL}/rest/api/3/issue/${issues[0].key}?expand=names`, {
+        headers: { Authorization: jiraAuthHeader(), Accept: 'application/json' },
+      });
+      const nText = await nr.text();
+      let nBody;
+      try { nBody = JSON.parse(nText); } catch { nBody = nText; }
+      if (nr.ok) names = nBody.names || {};
+    }
+
+    const sample = issues.map((iss) => {
       const customFields = {};
       for (const [fid, val] of Object.entries(iss.fields || {})) {
         if (fid.startsWith('customfield_') && val !== null && val !== undefined) {
