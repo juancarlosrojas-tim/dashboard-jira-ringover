@@ -454,7 +454,7 @@ const PROJECTS = [
 // /api/jira/fields — probablemente fue renombrado. "Categorías IT"
 // (customfield_10505) es el candidato más parecido por rango de id y
 // vigencia; queda pendiente confirmar con datos reales una vez desplegado.
-const CATEGORY_FIELD = 'customfield_10505'; // Categorías IT (¿antes "Categorías KFC Amrest"?)
+const CATEGORY_FIELD = 'customfield_10401'; // "Categorías KFC Amrest" — confirmado vía /api/jira/debug-fields
 
 function currentMonthStr() {
   const d = new Date();
