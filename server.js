@@ -468,6 +468,28 @@ function monthRange(month) {
   return { start, end };
 }
 
+function yearRange(year) {
+  const y = Number(year);
+  return { start: `${y}-01-01`, end: `${y + 1}-01-01` };
+}
+
+// Agrupa issues por mes de creación y calcula el bloque de KPIs de cada mes
+// (para el gráfico de evolución cuando se pide el año completo).
+function mensualBreakdown(issues) {
+  const groups = new Map();
+  for (const r of issues) {
+    if (!r.created) continue;
+    const d = new Date(r.created);
+    const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(r);
+  }
+  const keys = Array.from(groups.keys()).sort();
+  const out = {};
+  for (const k of keys) out[k] = bloque(groups.get(k));
+  return out;
+}
+
 // El campo de tipología puede venir como texto simple, select {value}, o
 // select en cascada {value, child:{value}} — normalizamos a "Familia - Hijo".
 function extractCategoryValue(raw) {
@@ -758,10 +780,10 @@ function finDeSemanaBreakdown(issues) {
   };
 }
 
-// Trae las issues CREADAS en el mes dado, para un proyecto, con todos los
-// campos que necesita el dashboard.
-async function fetchIssuesForMonth(projectCode, month) {
-  const { start, end } = monthRange(month);
+// Trae las issues CREADAS entre start (incluido) y end (excluido), para un
+// proyecto, con todos los campos que necesita el dashboard. maxResults=100
+// por página; para un año completo puede ser bastante más de una página.
+async function fetchIssuesForRange(projectCode, start, end) {
   const jql = `project = "${projectCode}" AND created >= "${start}" AND created < "${end}"`;
   const fields = ['assignee', 'reporter', 'status', 'resolution', 'labels', 'created', 'updated', 'components', CATEGORY_FIELD, SCORING_FIELD];
 
@@ -785,7 +807,7 @@ async function fetchIssuesForMonth(projectCode, month) {
     try { body = JSON.parse(text); } catch { body = text; }
 
     if (!r.ok) {
-      const err = new Error(`Jira respondió ${r.status} buscando ${projectCode} (${month})`);
+      const err = new Error(`Jira respondió ${r.status} buscando ${projectCode} (${start} a ${end})`);
       err.jiraStatus = r.status;
       err.jiraBody = body;
       throw err;
@@ -812,26 +834,35 @@ async function fetchIssuesForMonth(projectCode, month) {
     issues = issues.concat(pageIssues);
     nextPageToken = body.nextPageToken || undefined;
     guard += 1;
-  } while (nextPageToken && guard < 20);
+  } while (nextPageToken && guard < 60);
 
   return issues;
 }
 
-// Ejemplo: /api/jira/dashboard?month=2026-09  (si se omite, usa el mes actual)
+async function fetchIssuesForMonth(projectCode, month) {
+  const { start, end } = monthRange(month);
+  return fetchIssuesForRange(projectCode, start, end);
+}
+
+// Ejemplo: /api/jira/dashboard?month=2026-09  (mes concreto)
+//          /api/jira/dashboard?year=2026      (año completo, con evolución mensual)
+// Si no se pasa ninguno, usa el mes actual.
 app.get('/api/jira/dashboard', async (req, res) => {
   if (!JIRA_SITE_URL || !JIRA_EMAIL || !JIRA_API_TOKEN) {
     return res.status(500).json({ ok: false, error: 'Faltan variables de entorno de Jira en el servidor del proxy.' });
   }
 
-  const month = req.query.month || currentMonthStr();
+  const yearParam = req.query.year;
+  const month = yearParam ? null : (req.query.month || currentMonthStr());
+  const { start, end } = yearParam ? yearRange(yearParam) : monthRange(month);
 
   try {
-    const allIssues = [];
-    for (const p of PROJECTS) {
-      const issues = await fetchIssuesForMonth(p.code, month);
+    const results = await Promise.all(PROJECTS.map(async (p) => {
+      const issues = await fetchIssuesForRange(p.code, start, end);
       for (const iss of issues) iss.projectName = p.name;
-      allIssues.push(...issues);
-    }
+      return issues;
+    }));
+    const allIssues = results.flat();
 
     const total = bloque(allIssues);
     const proyectos = groupBy(allIssues, (r) => r.projectName);
@@ -839,13 +870,17 @@ app.get('/api/jira/dashboard', async (req, res) => {
     const partners = partnersBreakdown(allIssues);
     const { categorias, familias, nCategorizadas } = categoryBreakdown(allIssues);
     const { locales, nConLocal, reparto, reincidencia } = localesBreakdown(allIssues);
-    const porDia = porDiaBreakdown(allIssues, month);
+    // El desglose día-a-día solo tiene sentido dentro de un único mes.
+    const porDia = yearParam ? {} : porDiaBreakdown(allIssues, month);
     const diaSemana = diaSemanaBreakdown(allIssues);
     const finDeSemana = finDeSemanaBreakdown(allIssues);
+    const mensual = mensualBreakdown(allIssues);
 
     res.json({
       ok: true,
+      mode: yearParam ? 'year' : 'month',
       month,
+      year: yearParam ? Number(yearParam) : null,
       n: allIssues.length,
       total,
       proyectos,
@@ -861,6 +896,7 @@ app.get('/api/jira/dashboard', async (req, res) => {
       porDia,
       diaSemana,
       finDeSemana,
+      mensual,
     });
   } catch (err) {
     res.status(err.jiraStatus || 502).json({ ok: false, error: err.message, jiraBody: err.jiraBody });

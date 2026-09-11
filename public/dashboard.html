@@ -59,6 +59,16 @@
   .controls button:hover { background: rgba(96,165,250,0.12); }
   .controls .msg { font-size: 13px; color: var(--text-secondary); }
   .controls .msg.err { color: var(--critical); }
+  .controls select#year {
+    font: inherit; font-size: 14px; padding: 6px 10px; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--surface-2); color: var(--text-primary);
+  }
+  .seg { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .seg-btn {
+    font: inherit; font-size: 13px; padding: 6px 12px; background: var(--surface-2);
+    border: none; color: var(--text-secondary); cursor: pointer;
+  }
+  .seg-btn.active { background: var(--accent); color: #0f172a; font-weight: 600; }
 
   nav.tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 18px; border-bottom: 1px solid var(--border); }
   nav.tabs button {
@@ -133,8 +143,14 @@
   </header>
 
   <div class="controls">
-    <label for="month">Mes</label>
+    <div class="seg">
+      <button type="button" id="mode-month" class="seg-btn active">Mes</button>
+      <button type="button" id="mode-year" class="seg-btn">Año completo</button>
+    </div>
+    <label for="month" id="label-month">Mes</label>
     <input type="month" id="month" />
+    <label for="year" id="label-year" style="display:none">Año</label>
+    <select id="year" style="display:none"></select>
     <button id="reload">Actualizar</button>
     <span class="msg" id="msg"></span>
   </div>
@@ -150,7 +166,8 @@
 
   <section class="panel active" id="panel-resumen">
     <div class="tiles" id="tiles-resumen"></div>
-    <div class="card"><h3>Incidencias — creadas vs resueltas <span class="note">· por día del mes</span></h3><div id="chart-resumen-diario"></div></div>
+    <div class="card" id="card-resumen-diario"><h3>Incidencias — creadas vs resueltas <span class="note">· por día del mes</span></h3><div id="chart-resumen-diario"></div></div>
+    <div id="card-resumen-evolucion"></div>
     <div class="card"><h3>Actividad por día de la semana <span class="note">· en turquesa el fin de semana</span></h3><div id="chart-resumen-semana"></div></div>
     <div id="card-resumen-fs"></div>
     <h2 class="section-title">Por proyecto</h2>
@@ -224,6 +241,30 @@
   const monthInput = $('#month');
   const now = new Date();
   monthInput.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  // --- Modo mes / año completo ---
+  const yearSelect = $('#year');
+  const curYear = now.getFullYear();
+  for (let y = curYear; y >= curYear - 3; y--) {
+    const opt = document.createElement('option');
+    opt.value = String(y);
+    opt.textContent = String(y);
+    yearSelect.appendChild(opt);
+  }
+  let periodMode = 'month';
+  function setPeriodMode(m) {
+    periodMode = m;
+    $('#mode-month').classList.toggle('active', m === 'month');
+    $('#mode-year').classList.toggle('active', m === 'year');
+    $('#label-month').style.display = m === 'month' ? '' : 'none';
+    monthInput.style.display = m === 'month' ? '' : 'none';
+    $('#label-year').style.display = m === 'year' ? '' : 'none';
+    yearSelect.style.display = m === 'year' ? '' : 'none';
+    loadDashboard();
+  }
+  $('#mode-month').addEventListener('click', () => setPeriodMode('month'));
+  $('#mode-year').addEventListener('click', () => setPeriodMode('year'));
+  yearSelect.addEventListener('change', loadDashboard);
 
   const msgEl = $('#msg');
   function setMsg(text, isErr) {
@@ -431,6 +472,68 @@
     return p.join('');
   }
 
+  // Línea (evolución mensual) — p.ej. % FCR mes a mes en vista de año completo.
+  function lc(labels, series, w, h, dec, suf) {
+    w = w || 980; h = h || 280; dec = dec === undefined ? 1 : dec; suf = suf || '';
+    const ml = 48, mr = 14, mt = 30, mb = 46, pw = w - ml - mr, ph = h - mt - mb;
+    let all = [];
+    for (const s of series) all = all.concat(s.v);
+    const mx = Math.max(Math.max(0, ...all), 0.001) * 1.16;
+    const step = pw / Math.max(1, labels.length - 1);
+    const p = [`<svg viewBox="0 0 ${w} ${h}" class="chart">`];
+    for (let i = 0; i < 5; i++) {
+      const y = mt + ph - ph * i / 4;
+      p.push(`<line x1="${ml}" y1="${y.toFixed(1)}" x2="${w - mr}" y2="${y.toFixed(1)}" stroke="#334155"/>`);
+      p.push(`<text x="${ml - 8}" y="${(y + 4).toFixed(1)}" class="ax" text-anchor="end">${fx(mx * i / 4, dec)}</text>`);
+    }
+    for (const se of series) {
+      const pts = [];
+      for (let i = 0; i < se.v.length; i++) pts.push(`${(ml + step * i).toFixed(1)},${(mt + ph - ph * se.v[i] / mx).toFixed(1)}`);
+      if (se.v.length > 1) p.push(`<polyline points="${pts.join(' ')}" fill="none" stroke="${se.c}" stroke-width="2.5"/>`);
+      for (let i = 0; i < se.v.length; i++) {
+        const x = ml + step * i, y = mt + ph - ph * se.v[i] / mx;
+        p.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.5" fill="${se.c}"/>`);
+        p.push(`<text x="${x.toFixed(1)}" y="${(y - 9).toFixed(1)}" text-anchor="middle" style="font-size:10px;font-weight:700;fill:${se.c}">${fx(se.v[i], dec)}${suf}</text>`);
+      }
+    }
+    for (let i = 0; i < labels.length; i++)
+      p.push(`<text x="${(ml + step * i).toFixed(1)}" y="${mt + ph + 18}" class="ax" text-anchor="middle">${escapeHtml(labels[i])}</text>`);
+    let lx = ml;
+    for (const se of series) {
+      p.push(`<rect x="${lx}" y="${h - 14}" width="10" height="10" fill="${se.c}"/>`);
+      p.push(`<text x="${lx + 15}" y="${h - 5}" class="ax">${escapeHtml(se.n)}</text>`);
+      lx += se.n.length * 7 + 42;
+    }
+    p.push('</svg>');
+    return p.join('');
+  }
+
+  const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  function mesCorto(m) { const p = m.split('-'); return MESES_CORTOS[+p[1] - 1] + ' ' + p[0].slice(2); }
+
+  function renderEvolucion(mensual) {
+    const cont = $('#card-resumen-evolucion');
+    const mk = Object.keys(mensual || {}).sort();
+    if (mk.length < 2) {
+      cont.innerHTML = `<div class="card"><h3>Evolución del servicio</h3><p class="note">No hay suficientes meses con datos para ver la tendencia.</p></div>`;
+      return;
+    }
+    const L = [], cre = [], res = [], fcr = [], sco = [], esc = [];
+    for (const m of mk) {
+      const v = mensual[m];
+      L.push(mesCorto(m)); cre.push(v.creadas); res.push(v.resueltas);
+      fcr.push(v.fcrPct); sco.push(v.scoring || 0); esc.push(v.diasEscalada);
+    }
+    cont.innerHTML =
+      `<div class="card"><h3>Evolución del servicio <span class="note">· ${mk.length} meses · ${mesCorto(mk[0])} → ${mesCorto(mk[mk.length - 1])}</span></h3>` +
+      lc(L, [{ n: '% FCR', c: C.g, v: fcr }], 980, 280, 1, '%') + `</div>` +
+      `<div class="card"><h3>Creadas vs resueltas por mes</h3>${bg(L, cre, res, 'Creadas', 'Resueltas', 980, 310, 10)}</div>` +
+      `<div class="grid2">` +
+      `<div class="card"><h3>Scoring medio por mes</h3>${bv(L, sco, C.a, 470, 270, 2)}</div>` +
+      `<div class="card"><h3>Días de escalada por mes</h3>${bv(L, esc, C.r, 470, 270, 2)}</div>` +
+      `</div>`;
+  }
+
   function corto(n) { const p = String(n).split(' '); return p.length > 1 ? p[0] + ' ' + p[1].charAt(0) + '.' : n; }
   function nomProy(n) { return String(n).replace('IT - ', ''); }
 
@@ -552,9 +655,54 @@
   }
 
   function renderTipologiaTiles(data) {
-    $('#tiles-tipologia').innerHTML =
-      tile('Categorizadas', fmt(data.nCategorizadas)) +
-      tile('Sobre total', data.n ? `${round1((data.nCategorizadas / data.n) * 100)}%` : '—');
+    const fk = Object.keys(data.familias || {});
+    const ck = Object.keys(data.categorias || {});
+    const tiles = [
+      tile('Incidencias clasificadas', fmt(data.nCategorizadas), '', data.total && data.total.creadas ? `${fx(data.nCategorizadas / data.total.creadas * 100, 1)}% del total` : ''),
+      tile('Familias de fallo', fmt(fk.length)),
+      tile('Categorías distintas', fmt(ck.length)),
+    ];
+    if (fk.length) {
+      tiles.push(tile('Familia con más volumen', escapeHtml(fk[0]), '', `${fmt(data.familias[fk[0]].creadas)} incidencias`));
+    }
+    $('#tiles-tipologia').innerHTML = tiles.join('');
+  }
+
+  // Tabla "Familias de fallo" tal cual el dashboard de referencia: incluye
+  // barras de % escalada y % FCR, no solo el número.
+  function renderFamiliasTable(familias, container) {
+    const fk = Object.keys(familias || {});
+    if (!fk.length) { container.innerHTML = '<div class="empty">Sin datos para este mes.</div>'; return; }
+    const filas = fk.map((k) => {
+      const v = familias[k];
+      const pctEscalada = v.creadas ? (v.escaladas / v.creadas * 100) : 0;
+      return [
+        escapeHtml(k), fmt(v.creadas),
+        `<span style="color:${C.g}">${fmt(v.resueltas)}</span>`,
+        fmt(v.escaladas),
+        pctBarHtml(pctEscalada, C.p),
+        pctBarHtml(v.fcrPct, C.g),
+        fx(v.diasEscalada, 2),
+        `<b style="color:${C.a}">${fmtScoring(v.scoring)}</b>`,
+      ];
+    });
+    container.innerHTML = tablaHtml(['Familia', 'Incidencias', 'Resueltas', 'Escaladas', '% escalada', '% FCR', 'Días escalada', 'Scoring'], filas);
+  }
+
+  function renderCategoriasTable(categorias, container) {
+    const ck = Object.keys(categorias || {}).slice(0, 40);
+    if (!ck.length) { container.innerHTML = '<div class="empty">Sin datos para este mes.</div>'; return; }
+    const filas = ck.map((k) => {
+      const v = categorias[k];
+      const pctEscalada = v.creadas ? (v.escaladas / v.creadas * 100) : 0;
+      return [
+        escapeHtml(k), fmt(v.creadas), fmt(v.escaladas),
+        pctBarHtml(pctEscalada, C.p),
+        pctBarHtml(v.fcrPct, C.g),
+        `<b style="color:${C.a}">${fmtScoring(v.scoring)}</b>`,
+      ];
+    });
+    container.innerHTML = tablaHtml(['Categoría', 'Incidencias', 'Escaladas', '% escalada', '% FCR', 'Scoring'], filas);
   }
 
   function renderFamiliaCharts(familias) {
@@ -605,20 +753,37 @@
   }
 
   async function loadDashboard() {
-    const month = monthInput.value;
-    if (!month) return;
-    setMsg('Cargando datos de ' + month + '…', false);
+    let qs, periodLabel;
+    if (periodMode === 'year') {
+      const year = yearSelect.value;
+      if (!year) return;
+      qs = `year=${encodeURIComponent(year)}`;
+      periodLabel = year;
+    } else {
+      const month = monthInput.value;
+      if (!month) return;
+      qs = `month=${encodeURIComponent(month)}`;
+      periodLabel = month;
+    }
+    setMsg('Cargando datos de ' + periodLabel + (periodMode === 'year' ? ' (el año completo puede tardar un poco)…' : '…'), false);
     try {
-      const r = await fetch(`/api/jira/dashboard?month=${encodeURIComponent(month)}`);
+      const r = await fetch(`/api/jira/dashboard?${qs}`);
       const data = await r.json();
       if (!data.ok) {
         setMsg(data.error || 'Error al cargar datos.', true);
         return;
       }
-      setMsg(`${fmt(data.n)} incidencias creadas en ${data.month}.`, false);
+      setMsg(`${fmt(data.n)} incidencias creadas en ${data.mode === 'year' ? data.year : data.month}.`, false);
 
       renderResumenTiles(data.total);
-      renderResumenDiario(data.porDia);
+      if (data.mode === 'year') {
+        $('#card-resumen-diario').style.display = 'none';
+        renderEvolucion(data.mensual);
+      } else {
+        $('#card-resumen-diario').style.display = '';
+        $('#card-resumen-evolucion').innerHTML = '';
+        renderResumenDiario(data.porDia);
+      }
       renderResumenSemana(data.diaSemana);
       renderFinDeSemana(data.finDeSemana);
       tableFromBloqueMap(data.proyectos, 'Proyecto', $('#tabla-resumen-proyecto'));
@@ -634,9 +799,9 @@
       tableFromPartners(data.partners, $('#tabla-partners'));
 
       renderTipologiaTiles(data);
-      tableFromBloqueMap(data.familias, 'Familia', $('#tabla-familias'));
+      renderFamiliasTable(data.familias, $('#tabla-familias'));
       renderFamiliaCharts(data.familias);
-      tableFromBloqueMap(data.categorias, 'Categoría', $('#tabla-categorias'));
+      renderCategoriasTable(data.categorias, $('#tabla-categorias'));
 
       renderLocalesTiles(data);
       renderReparto(data.reparto, data.reincidencia);
