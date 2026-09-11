@@ -468,6 +468,13 @@ function monthRange(month) {
   return { start, end };
 }
 
+function dayRange(date) {
+  const d = new Date(`${date}T00:00:00Z`);
+  const next = new Date(d.getTime() + 24 * 60 * 60 * 1000);
+  const end = `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`;
+  return { start: date, end };
+}
+
 function yearRange(year) {
   const y = Number(year);
   return { start: `${y}-01-01`, end: `${y + 1}-01-01` };
@@ -846,6 +853,7 @@ async function fetchIssuesForMonth(projectCode, month) {
 
 // Ejemplo: /api/jira/dashboard?month=2026-09  (mes concreto)
 //          /api/jira/dashboard?year=2026      (año completo, con evolución mensual)
+//          /api/jira/dashboard?date=2026-09-11 (un día concreto)
 // Si no se pasa ninguno, usa el mes actual.
 app.get('/api/jira/dashboard', async (req, res) => {
   if (!JIRA_SITE_URL || !JIRA_EMAIL || !JIRA_API_TOKEN) {
@@ -853,8 +861,10 @@ app.get('/api/jira/dashboard', async (req, res) => {
   }
 
   const yearParam = req.query.year;
-  const month = yearParam ? null : (req.query.month || currentMonthStr());
-  const { start, end } = yearParam ? yearRange(yearParam) : monthRange(month);
+  const dateParam = !yearParam ? req.query.date : null;
+  const month = (yearParam || dateParam) ? null : (req.query.month || currentMonthStr());
+  const { start, end } = yearParam ? yearRange(yearParam) : dateParam ? dayRange(dateParam) : monthRange(month);
+  const mode = yearParam ? 'year' : dateParam ? 'day' : 'month';
 
   try {
     const results = await Promise.all(PROJECTS.map(async (p) => {
@@ -871,16 +881,17 @@ app.get('/api/jira/dashboard', async (req, res) => {
     const { categorias, familias, nCategorizadas } = categoryBreakdown(allIssues);
     const { locales, nConLocal, reparto, reincidencia } = localesBreakdown(allIssues);
     // El desglose día-a-día solo tiene sentido dentro de un único mes.
-    const porDia = yearParam ? {} : porDiaBreakdown(allIssues, month);
+    const porDia = mode === 'month' ? porDiaBreakdown(allIssues, month) : {};
     const diaSemana = diaSemanaBreakdown(allIssues);
     const finDeSemana = finDeSemanaBreakdown(allIssues);
     const mensual = mensualBreakdown(allIssues);
 
     res.json({
       ok: true,
-      mode: yearParam ? 'year' : 'month',
+      mode,
       month,
       year: yearParam ? Number(yearParam) : null,
+      date: dateParam || null,
       n: allIssues.length,
       total,
       proyectos,

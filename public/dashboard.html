@@ -48,7 +48,7 @@
     padding: 12px 16px; margin-bottom: 18px;
   }
   .controls label { font-size: 13px; color: var(--text-secondary); }
-  .controls input[type="month"] {
+  .controls input[type="month"], .controls input[type="date"] {
     font: inherit; font-size: 14px; padding: 6px 10px; border-radius: 6px;
     border: 1px solid var(--border); background: var(--surface-2); color: var(--text-primary);
   }
@@ -144,9 +144,12 @@
 
   <div class="controls">
     <div class="seg">
+      <button type="button" id="mode-day" class="seg-btn">Día</button>
       <button type="button" id="mode-month" class="seg-btn active">Mes</button>
       <button type="button" id="mode-year" class="seg-btn">Año completo</button>
     </div>
+    <label for="day" id="label-day" style="display:none">Día</label>
+    <input type="date" id="day" style="display:none" />
     <label for="month" id="label-month">Mes</label>
     <input type="month" id="month" />
     <label for="year" id="label-year" style="display:none">Año</label>
@@ -168,7 +171,7 @@
     <div class="tiles" id="tiles-resumen"></div>
     <div class="card" id="card-resumen-diario"><h3>Incidencias — creadas vs resueltas <span class="note">· por día del mes</span></h3><div id="chart-resumen-diario"></div></div>
     <div id="card-resumen-evolucion"></div>
-    <div class="card"><h3>Actividad por día de la semana <span class="note">· en turquesa el fin de semana</span></h3><div id="chart-resumen-semana"></div></div>
+    <div class="card" id="card-resumen-diasemana"><h3>Actividad por día de la semana <span class="note">· en turquesa el fin de semana</span></h3><div id="chart-resumen-semana"></div></div>
     <div id="card-resumen-fs"></div>
     <h2 class="section-title">Por proyecto</h2>
     <div class="table-wrap" id="tabla-resumen-proyecto"></div>
@@ -237,12 +240,14 @@
     });
   });
 
-  // --- Month default = current ---
+  // --- Month/day default = current ---
   const monthInput = $('#month');
+  const dayInput = $('#day');
   const now = new Date();
   monthInput.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  dayInput.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
-  // --- Modo mes / año completo ---
+  // --- Modo día / mes / año completo ---
   const yearSelect = $('#year');
   const curYear = now.getFullYear();
   for (let y = curYear; y >= curYear - 3; y--) {
@@ -254,16 +259,21 @@
   let periodMode = 'month';
   function setPeriodMode(m) {
     periodMode = m;
+    $('#mode-day').classList.toggle('active', m === 'day');
     $('#mode-month').classList.toggle('active', m === 'month');
     $('#mode-year').classList.toggle('active', m === 'year');
+    $('#label-day').style.display = m === 'day' ? '' : 'none';
+    dayInput.style.display = m === 'day' ? '' : 'none';
     $('#label-month').style.display = m === 'month' ? '' : 'none';
     monthInput.style.display = m === 'month' ? '' : 'none';
     $('#label-year').style.display = m === 'year' ? '' : 'none';
     yearSelect.style.display = m === 'year' ? '' : 'none';
     loadDashboard();
   }
+  $('#mode-day').addEventListener('click', () => setPeriodMode('day'));
   $('#mode-month').addEventListener('click', () => setPeriodMode('month'));
   $('#mode-year').addEventListener('click', () => setPeriodMode('year'));
+  dayInput.addEventListener('change', loadDashboard);
   yearSelect.addEventListener('change', loadDashboard);
 
   const msgEl = $('#msg');
@@ -759,6 +769,11 @@
       if (!year) return;
       qs = `year=${encodeURIComponent(year)}`;
       periodLabel = year;
+    } else if (periodMode === 'day') {
+      const day = dayInput.value;
+      if (!day) return;
+      qs = `date=${encodeURIComponent(day)}`;
+      periodLabel = day;
     } else {
       const month = monthInput.value;
       if (!month) return;
@@ -773,19 +788,25 @@
         setMsg(data.error || 'Error al cargar datos.', true);
         return;
       }
-      setMsg(`${fmt(data.n)} incidencias creadas en ${data.mode === 'year' ? data.year : data.month}.`, false);
+      const periodo = data.mode === 'year' ? data.year : data.mode === 'day' ? data.date : data.month;
+      setMsg(`${fmt(data.n)} incidencias creadas en ${periodo}.`, false);
 
       renderResumenTiles(data.total);
+      // El desglose por día del mes y la evolución mensual solo tienen sentido
+      // en vista de mes / año; en vista de un solo día se ocultan.
+      $('#card-resumen-diario').style.display = data.mode === 'month' ? '' : 'none';
+      $('#card-resumen-diasemana').style.display = data.mode === 'day' ? 'none' : '';
+      $('#card-resumen-fs').style.display = data.mode === 'day' ? 'none' : '';
       if (data.mode === 'year') {
-        $('#card-resumen-diario').style.display = 'none';
         renderEvolucion(data.mensual);
       } else {
-        $('#card-resumen-diario').style.display = '';
         $('#card-resumen-evolucion').innerHTML = '';
-        renderResumenDiario(data.porDia);
+        if (data.mode === 'month') renderResumenDiario(data.porDia);
       }
-      renderResumenSemana(data.diaSemana);
-      renderFinDeSemana(data.finDeSemana);
+      if (data.mode !== 'day') {
+        renderResumenSemana(data.diaSemana);
+        renderFinDeSemana(data.finDeSemana);
+      }
       tableFromBloqueMap(data.proyectos, 'Proyecto', $('#tabla-resumen-proyecto'));
 
       tableFromBloqueMap(data.proyectos, 'Proyecto', $('#tabla-proyecto'));
