@@ -612,9 +612,150 @@ function localesBreakdown(issues) {
     map.get(v).push(r);
   }
   const entries = Array.from(map.entries()).sort((a, b) => b[1].length - a[1].length);
+  const locales = {};
+  for (const [k, rows] of entries) locales[k] = bloque(rows);
+
+  // Reparto: cuántos locales reportan una sola vez vs. reincidentes, más Pareto.
+  let uno = 0, dos = 0, tresCinco = 0, seis = 0, volUno = 0, volSeis = 0;
+  for (const [, rows] of entries) {
+    const v = rows.length;
+    if (v === 1) { uno += 1; volUno += v; }
+    else if (v === 2) dos += 1;
+    else if (v <= 5) tresCinco += 1;
+    else { seis += 1; volSeis += v; }
+  }
+  let acum = 0, p20 = 0;
+  const p20n = Math.ceil(entries.length * 0.2);
+  entries.forEach(([, rows], i) => {
+    acum += rows.length;
+    if (i + 1 === p20n) p20 = acum;
+  });
+  const reparto = {
+    locales: entries.length, uno, dos, tresCinco, seis, volUno, volSeis, total: nConLocal,
+    pctUno: entries.length ? round1((uno / entries.length) * 100) : 0,
+    pctDos: entries.length ? round1((dos / entries.length) * 100) : 0,
+    pctTresCinco: entries.length ? round1((tresCinco / entries.length) * 100) : 0,
+    pctSeis: entries.length ? round1((seis / entries.length) * 100) : 0,
+    pctVolUno: nConLocal ? round1((volUno / nConLocal) * 100) : 0,
+    pctVolDos: nConLocal ? round1(((dos * 2) / nConLocal) * 100) : 0,
+    pctVolSeis: nConLocal ? round1((volSeis / nConLocal) * 100) : 0,
+    pareto20: nConLocal ? round1((p20 / nConLocal) * 100) : 0,
+    nPareto20: p20n,
+  };
+
+  // Reincidencia: locales con 3 o más incidencias en el mes seleccionado.
+  const reincidenciaTop = entries
+    .filter(([, rows]) => rows.length >= 3)
+    .map(([k, rows]) => ({ local: k, n: rows.length }))
+    .sort((a, b) => b.n - a.n)
+    .slice(0, 12);
+
+  return { locales, nConLocal, reparto, reincidencia: { n: reincidenciaTop.length, top: reincidenciaTop } };
+}
+
+const DOW_NAMES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
+// getDay() de JS: 0=domingo..6=sábado. Lo convertimos a 0=lunes..6=domingo.
+function diaSemanaIdx(iso) {
+  return (new Date(iso).getDay() + 6) % 7;
+}
+
+function diaSemanaBreakdown(issues) {
   const out = {};
-  for (const [k, rows] of entries) out[k] = bloque(rows);
-  return { locales: out, nConLocal };
+  for (const n of DOW_NAMES) out[n] = 0;
+  for (const r of issues) {
+    if (!r.created) continue;
+    out[DOW_NAMES[diaSemanaIdx(r.created)]] += 1;
+  }
+  return out;
+}
+
+// Nº de creadas por día del mes, y nº de resueltas por día del mes (según
+// la fecha de actualización, solo si cae dentro del mismo mes).
+function porDiaBreakdown(issues, month) {
+  const bd = {};
+  for (const r of issues) {
+    if (!r.created) continue;
+    const d = new Date(r.created).getDate();
+    bd[d] = bd[d] || { c: 0, r: 0 };
+    bd[d].c += 1;
+  }
+  for (const r of issues) {
+    if (!esResuelta(r) || !r.updated) continue;
+    const upd = new Date(r.updated);
+    const ak = `${upd.getFullYear()}-${String(upd.getMonth() + 1).padStart(2, '0')}`;
+    if (ak !== month) continue;
+    const d = upd.getDate();
+    bd[d] = bd[d] || { c: 0, r: 0 };
+    bd[d].r += 1;
+  }
+  let nDias = 0;
+  for (const k in bd) nDias = Math.max(nDias, Number(k));
+  const out = {};
+  for (let i = 1; i <= nDias; i++) out[i] = bd[i] || { c: 0, r: 0 };
+  return out;
+}
+
+function ordenarDesc(obj) {
+  const keys = Object.keys(obj).sort((a, b) => obj[b] - obj[a]);
+  const out = {};
+  for (const k of keys) out[k] = obj[k];
+  return out;
+}
+
+// Issues creadas en sábado/domingo: volumen, quién las crea, si se traspasan
+// a otra persona, y el peso del fin de semana por proyecto.
+function finDeSemanaBreakdown(issues) {
+  const fs = [], lv = [];
+  const dfs = new Set(), dlv = new Set();
+  for (const r of issues) {
+    if (!r.created) continue;
+    const w = diaSemanaIdx(r.created);
+    const day = new Date(r.created).getDate();
+    if (w >= 5) { fs.push(r); dfs.add(day); } else { lv.push(r); dlv.add(day); }
+  }
+  const nfs = dfs.size || 1, nlv = dlv.size || 1;
+  const bf = bloque(fs);
+  let sab = 0, dom = 0;
+  const porFecha = {}, creadores = {}, traspasadas = {};
+  let nTraspasadas = 0;
+  for (const r of fs) {
+    const w = diaSemanaIdx(r.created);
+    const day = new Date(r.created).getDate();
+    if (w === 5) sab += 1; else dom += 1;
+    porFecha[day] = porFecha[day] || { n: 0, dow: w === 5 ? 'Sáb' : 'Dom' };
+    porFecha[day].n += 1;
+    const cr = r.reporter || '—';
+    creadores[cr] = (creadores[cr] || 0) + 1;
+    const as = r.assignee;
+    if (as && as !== cr) { traspasadas[as] = (traspasadas[as] || 0) + 1; nTraspasadas += 1; }
+  }
+  const pjt = {}, pjf = {};
+  for (const r of issues) { const p = r.projectName || 'Sin proyecto'; pjt[p] = (pjt[p] || 0) + 1; }
+  for (const r of fs) { const p = r.projectName || 'Sin proyecto'; pjf[p] = (pjf[p] || 0) + 1; }
+  const pk = Object.keys(pjt).sort((a, b) => (pjf[b] || 0) - (pjf[a] || 0));
+  const proyectos = {};
+  for (const p of pk) {
+    proyectos[p] = { fs: pjf[p] || 0, total: pjt[p], pct: pjt[p] ? round1(((pjf[p] || 0) / pjt[p]) * 100) : 0 };
+  }
+  return {
+    total: fs.length,
+    pct: issues.length ? round1((fs.length / issues.length) * 100) : 0,
+    porDiaFs: round1(fs.length / nfs),
+    porDiaLv: round1(lv.length / nlv),
+    nDiasFs: nfs,
+    nDiasLv: nlv,
+    sab,
+    dom,
+    resueltas: bf.resueltas,
+    escaladas: bf.escaladas,
+    scoring: bf.scoring,
+    porFecha,
+    creadores: ordenarDesc(creadores),
+    traspasadas: ordenarDesc(traspasadas),
+    nTraspasadas,
+    proyectos,
+  };
 }
 
 // Trae las issues CREADAS en el mes dado, para un proyecto, con todos los
@@ -697,7 +838,10 @@ app.get('/api/jira/dashboard', async (req, res) => {
     const tecnicos = groupBy(allIssues, (r) => r.assignee || 'Sin asignar', (k) => isExcluded(k));
     const partners = partnersBreakdown(allIssues);
     const { categorias, familias, nCategorizadas } = categoryBreakdown(allIssues);
-    const { locales, nConLocal } = localesBreakdown(allIssues);
+    const { locales, nConLocal, reparto, reincidencia } = localesBreakdown(allIssues);
+    const porDia = porDiaBreakdown(allIssues, month);
+    const diaSemana = diaSemanaBreakdown(allIssues);
+    const finDeSemana = finDeSemanaBreakdown(allIssues);
 
     res.json({
       ok: true,
@@ -712,6 +856,11 @@ app.get('/api/jira/dashboard', async (req, res) => {
       nCategorizadas,
       locales,
       nConLocal,
+      reparto,
+      reincidencia,
+      porDia,
+      diaSemana,
+      finDeSemana,
     });
   } catch (err) {
     res.status(err.jiraStatus || 502).json({ ok: false, error: err.message, jiraBody: err.jiraBody });

@@ -15,9 +15,11 @@
     --text-muted:     #64748b;
     --border:      rgba(255,255,255,0.08);
     --accent:      #60a5fa;
-    --good:        #22c55e;
+    --good:        #10b981;
     --warning:     #f59e0b;
     --critical:    #ef4444;
+    --violet:      #a78bfa;
+    --teal:        #2dd4bf;
   }
 
   * { box-sizing: border-box; }
@@ -84,6 +86,22 @@
   h2.section-title { font-size: 15px; font-weight: 600; margin: 24px 0 10px; color: var(--text-primary); }
   h2.section-title:first-child { margin-top: 0; }
 
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 18px; margin-bottom: 18px; }
+  .card h3 { font-size: 14px; font-weight: 600; margin: 0 0 14px; }
+  .h4 { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin: 10px 0 8px; }
+  .note { font-weight: 400; font-size: 11px; color: var(--text-muted); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
+  .wk { border-color: #2dd4bf55; background: linear-gradient(180deg, rgba(45,212,191,.08), var(--surface-1) 140px); }
+  .wk .tile { background: var(--surface-2); }
+
+  .chart { width: 100%; height: auto; overflow: visible; }
+  .ax { fill: var(--text-secondary); font-size: 11px; }
+
+  .pb { display:inline-block; width:58px; height:6px; background:#334155; border-radius:3px; vertical-align:middle; overflow:hidden; }
+  .pf { height:100%; border-radius:3px; }
+  .pt { font-size:12px; color:#cbd5e1; margin-left:8px; }
+
   table { width: 100%; border-collapse: collapse; background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 13px; }
   thead th {
     text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 12px;
@@ -96,6 +114,8 @@
   td.name { font-variant-numeric: normal; font-weight: 500; }
   td.num { text-align: right; }
   .table-wrap { overflow-x: auto; margin-bottom: 20px; }
+  .tw { overflow-x: auto; }
+  .tw table { margin-bottom: 0; }
 
   .empty { color: var(--text-muted); font-size: 13px; padding: 16px; text-align: center; }
   .fcr-pct { font-weight: 600; }
@@ -130,20 +150,33 @@
 
   <section class="panel active" id="panel-resumen">
     <div class="tiles" id="tiles-resumen"></div>
+    <div class="card"><h3>Incidencias — creadas vs resueltas <span class="note">· por día del mes</span></h3><div id="chart-resumen-diario"></div></div>
+    <div class="card"><h3>Actividad por día de la semana <span class="note">· en turquesa el fin de semana</span></h3><div id="chart-resumen-semana"></div></div>
+    <div id="card-resumen-fs"></div>
     <h2 class="section-title">Por proyecto</h2>
     <div class="table-wrap" id="tabla-resumen-proyecto"></div>
   </section>
 
   <section class="panel" id="panel-proyecto">
     <div class="table-wrap" id="tabla-proyecto"></div>
+    <div class="grid2">
+      <div class="card"><h3>Creadas vs resueltas</h3><div id="chart-proyecto-bg"></div></div>
+      <div class="card"><h3>Días promedio de escalada</h3><div id="chart-proyecto-dias"></div></div>
+    </div>
+    <div class="card"><h3>% FCR por proyecto</h3><div id="chart-proyecto-fcr"></div></div>
   </section>
 
   <section class="panel" id="panel-tecnico">
     <div class="table-wrap" id="tabla-tecnico"></div>
+    <div class="card"><h3>Asignadas vs resueltas por técnico</h3><div id="chart-tecnico-bg"></div></div>
+    <div class="card"><h3>Scoring promedio de la descripción (0–10)</h3><div id="chart-tecnico-scoring"></div></div>
+    <div class="card"><h3>Días promedio de escalada por técnico</h3><div id="chart-tecnico-dias"></div></div>
   </section>
 
   <section class="panel" id="panel-escaladas">
     <div class="tiles" id="tiles-escaladas"></div>
+    <div class="card"><h3>Días promedio escalada por equipo/partner</h3><div id="chart-escaladas-dias"></div></div>
+    <div class="card"><h3>Nº de issues escaladas por equipo/partner <span class="note">· top 10</span></h3><div id="chart-escaladas-n"></div></div>
     <h2 class="section-title">Por partner</h2>
     <div class="table-wrap" id="tabla-partners"></div>
   </section>
@@ -152,14 +185,20 @@
     <div class="tiles" id="tiles-tipologia"></div>
     <h2 class="section-title">Por familia</h2>
     <div class="table-wrap" id="tabla-familias"></div>
+    <div class="card"><h3>Incidencias por familia</h3><div id="chart-familias-n"></div></div>
+    <div class="card"><h3>Escaladas por familia</h3><div id="chart-familias-esc"></div></div>
+    <div class="card"><h3>% FCR por familia <span class="note">· cuanto más bajo, más depende de terceros</span></h3><div id="chart-familias-fcr"></div></div>
     <h2 class="section-title">Por categoría</h2>
     <div class="table-wrap" id="tabla-categorias"></div>
   </section>
 
   <section class="panel" id="panel-locales">
     <div class="tiles" id="tiles-locales"></div>
+    <div class="card" id="card-reparto"></div>
+    <div class="card"><h3>Locales con más incidencias <span class="note">· top 15</span></h3><div id="chart-locales-top"></div></div>
     <h2 class="section-title">Por local</h2>
     <div class="table-wrap" id="tabla-locales"></div>
+    <div id="card-reincidencia"></div>
   </section>
 
 </div>
@@ -167,6 +206,9 @@
 <script>
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+
+  // Paleta fija (igual que el dashboard de referencia de carga manual).
+  const C = { b: '#60a5fa', g: '#10b981', a: '#f59e0b', p: '#a78bfa', r: '#ef4444', t: '#2dd4bf' };
 
   // --- Tabs ---
   $$('nav.tabs button').forEach((btn) => {
@@ -217,6 +259,19 @@
     if (pct >= 80) return 'good';
     if (pct >= 50) return 'warn';
     return 'crit';
+  }
+  function round1(x) { return Math.round(x * 10) / 10; }
+  function fx(v, n) {
+    n = n || 0;
+    if (v === null || v === undefined || isNaN(v)) return '—';
+    return (Math.round(v * Math.pow(10, n)) / Math.pow(10, n)).toFixed(n);
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  function pctBarHtml(p, c) {
+    p = p || 0;
+    return `<div class="pb"><div class="pf" style="width:${Math.min(p,100).toFixed(1)}%;background:${c}"></div></div><span class="pt">${p.toFixed(1)}%</span>`;
   }
 
   const BLOQUE_COLS = [
@@ -272,13 +327,114 @@
     container.innerHTML = html;
   }
 
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  function tablaHtml(hd, filas) {
+    if (!filas.length) return '<div class="empty">Sin datos para este mes.</div>';
+    const al = ['left'];
+    for (let i = 1; i < hd.length; i++) al.push('center');
+    let th = '';
+    for (let i = 0; i < hd.length; i++) th += `<th style="text-align:${al[i]}">${escapeHtml(hd[i])}</th>`;
+    let tr = '';
+    for (const fila of filas) {
+      tr += '<tr>';
+      for (let j = 0; j < fila.length; j++) tr += `<td style="text-align:${al[j]}">${fila[j]}</td>`;
+      tr += '</tr>';
+    }
+    return `<div class="tw"><table><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table></div>`;
   }
 
   function tile(label, value, extraClass, sub) {
     return `<div class="tile ${extraClass || ''}"><div class="label">${label}</div><div class="value">${value}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>`;
   }
+
+  // ============ Gráficos SVG hechos a mano ============
+
+  // Barras agrupadas (2 series) — p.ej. creadas vs resueltas.
+  function bg(labels, s1, s2, n1, n2, w, h, fsz) {
+    w = w || 980; h = h || 320; fsz = fsz || 9;
+    const ml = 44, mr = 10, mt = 30, mb = 50, pw = w - ml - mr, ph = h - mt - mb;
+    const mx = Math.max(Math.max(0, ...s1), Math.max(0, ...s2), 1) * 1.10;
+    const step = pw / Math.max(labels.length, 1), bw = Math.min(step * 0.34, 26);
+    const p = [`<svg viewBox="0 0 ${w} ${h}" class="chart">`];
+    for (let i = 0; i < 5; i++) {
+      const y = mt + ph - ph * i / 4;
+      p.push(`<line x1="${ml}" y1="${y.toFixed(1)}" x2="${w - mr}" y2="${y.toFixed(1)}" stroke="#334155"/>`);
+      p.push(`<text x="${ml - 8}" y="${(y + 4).toFixed(1)}" class="ax" text-anchor="end">${Math.round(mx * i / 4)}</text>`);
+    }
+    for (let i = 0; i < labels.length; i++) {
+      const cx = ml + step * i + step / 2;
+      const vs = [[s1[i], '#cbd5e1', n1], [s2[i], C.a, n2]];
+      for (let j = 0; j < 2; j++) {
+        const val = vs[j][0], col = vs[j][1];
+        const bh = ph * val / mx, x = cx - bw + j * bw;
+        p.push(`<rect x="${x.toFixed(1)}" y="${(mt + ph - bh).toFixed(1)}" width="${(bw - 2).toFixed(1)}" height="${bh.toFixed(1)}" fill="${col}" rx="2"><title>${escapeHtml(labels[i])} — ${val} ${vs[j][2]}</title></rect>`);
+        if (val > 0) p.push(`<text x="${(x + (bw - 2) / 2).toFixed(1)}" y="${(mt + ph - bh - 4).toFixed(1)}" text-anchor="middle" style="font-size:${fsz}px;font-weight:600;fill:${col}">${val}</text>`);
+      }
+      p.push(`<text x="${cx.toFixed(1)}" y="${mt + ph + 18}" class="ax" text-anchor="middle">${escapeHtml(labels[i])}</text>`);
+    }
+    p.push(`<rect x="${ml}" y="${h - 16}" width="10" height="10" fill="#cbd5e1"/><text x="${ml + 15}" y="${h - 7}" class="ax">${n1}</text>`);
+    p.push(`<rect x="${ml + 85}" y="${h - 16}" width="10" height="10" fill="${C.a}"/><text x="${ml + 100}" y="${h - 7}" class="ax">${n2}</text></svg>`);
+    return p.join('');
+  }
+
+  // Barras verticales (1 serie) — soporta color fijo o por-barra (cols).
+  function bv(labels, vals, color, w, h, dec, cols) {
+    w = w || 980; h = h || 290; dec = dec || 0; color = color || C.p;
+    const ml = 48, mr = 10, mt = 28, mb = 44, pw = w - ml - mr, ph = h - mt - mb;
+    const mx = Math.max(Math.max(0, ...vals), 1) * 1.16;
+    const step = pw / Math.max(labels.length, 1), bw = Math.min(step * 0.55, 64);
+    const p = [`<svg viewBox="0 0 ${w} ${h}" class="chart">`];
+    for (let i = 0; i < 5; i++) {
+      const y = mt + ph - ph * i / 4;
+      p.push(`<line x1="${ml}" y1="${y.toFixed(1)}" x2="${w - mr}" y2="${y.toFixed(1)}" stroke="#334155"/>`);
+      p.push(`<text x="${ml - 8}" y="${(y + 4).toFixed(1)}" class="ax" text-anchor="end">${fx(mx * i / 4, dec)}</text>`);
+    }
+    for (let i = 0; i < labels.length; i++) {
+      const c = cols ? cols[i] : color, cx = ml + step * i + step / 2, bh = ph * vals[i] / mx;
+      p.push(`<rect x="${(cx - bw / 2).toFixed(1)}" y="${(mt + ph - bh).toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" fill="${c}" rx="3"><title>${escapeHtml(labels[i])}: ${fx(vals[i], dec)}</title></rect>`);
+      p.push(`<text x="${cx.toFixed(1)}" y="${(mt + ph - bh - 7).toFixed(1)}" text-anchor="middle" style="font-size:12px;font-weight:700;fill:${c}">${fx(vals[i], dec)}</text>`);
+      p.push(`<text x="${cx.toFixed(1)}" y="${mt + ph + 18}" class="ax" text-anchor="middle">${escapeHtml(labels[i])}</text>`);
+    }
+    p.push('</svg>');
+    return p.join('');
+  }
+
+  // Barras horizontales en días (p.ej. días de escalada por partner).
+  function bh(labels, vals, ns) {
+    const rh = 27, ml = 190, h = labels.length * rh + 14, w = 980, pw = w - ml - 130;
+    const mx = Math.max(Math.max(0, ...vals), 0.01);
+    const p = [`<svg viewBox="0 0 ${w} ${h}" class="chart" style="height:${h}px">`];
+    for (let i = 0; i < labels.length; i++) {
+      const y = 7 + i * rh, b = pw * vals[i] / mx;
+      p.push(`<text x="${ml - 10}" y="${y + 17}" class="ax" text-anchor="end">${escapeHtml(labels[i])}</text>`);
+      p.push(`<rect x="${ml}" y="${y + 4}" width="${b.toFixed(1)}" height="${rh - 12}" fill="${C.r}" rx="3"/>`);
+      p.push(`<text x="${(ml + b + 8).toFixed(1)}" y="${y + 17}" style="font-size:12px;font-weight:700;fill:${C.r}">${fx(vals[i], 2)} días</text>`);
+      p.push(`<text x="${w - 8}" y="${y + 17}" class="ax" text-anchor="end">n=${ns[i]}</text>`);
+    }
+    p.push('</svg>');
+    return p.join('');
+  }
+
+  // Barras horizontales para etiquetas largas (familias, categorías, locales).
+  function bhz(labels, vals, color, w, fmt2, suf) {
+    w = w || 980; fmt2 = fmt2 || 0; suf = suf || ''; color = color || C.p;
+    const rh = 26, ml = 250, h = labels.length * rh + 16, pw = w - ml - 80;
+    const mx = Math.max(Math.max(0, ...vals), 1);
+    const p = [`<svg viewBox="0 0 ${w} ${h}" class="chart" style="height:${h}px">`];
+    for (let i = 0; i < labels.length; i++) {
+      const y = 8 + i * rh, b = pw * vals[i] / mx;
+      const nm = String(labels[i]).length > 36 ? String(labels[i]).slice(0, 35) + '…' : labels[i];
+      p.push(`<text x="${ml - 10}" y="${y + 16}" class="ax" text-anchor="end">${escapeHtml(nm)}<title>${escapeHtml(labels[i])}</title></text>`);
+      p.push(`<rect x="${ml}" y="${y + 4}" width="${Math.max(b, 1).toFixed(1)}" height="${rh - 11}" fill="${color}" rx="3"/>`);
+      p.push(`<text x="${(ml + Math.max(b, 1) + 8).toFixed(1)}" y="${y + 16}" style="font-size:12px;font-weight:700;fill:${color}">${fx(vals[i], fmt2)}${suf}</text>`);
+    }
+    p.push('</svg>');
+    return p.join('');
+  }
+
+  function corto(n) { const p = String(n).split(' '); return p.length > 1 ? p[0] + ' ' + p[1].charAt(0) + '.' : n; }
+  function nomProy(n) { return String(n).replace('IT - ', ''); }
+
+  // ============ Render por pestaña ============
 
   function renderResumenTiles(total) {
     $('#tiles-resumen').innerHTML =
@@ -291,13 +447,103 @@
       tile('Scoring medio', fmtScoring(total.scoring), '', total.nScore ? `${total.nScore} valoradas` : 'sin valoraciones');
   }
 
+  function renderResumenDiario(porDia) {
+    const dias = Object.keys(porDia || {});
+    if (!dias.length) { $('#chart-resumen-diario').innerHTML = '<div class="empty">Sin datos para este mes.</div>'; return; }
+    const cr = dias.map((d) => porDia[d].c), rs = dias.map((d) => porDia[d].r);
+    $('#chart-resumen-diario').innerHTML = bg(dias, cr, rs, 'Creada', 'Resuelta', 980, 330, 8);
+  }
+
+  function renderResumenSemana(diaSemana) {
+    const dias = Object.keys(diaSemana || {});
+    if (!dias.length) { $('#chart-resumen-semana').innerHTML = '<div class="empty">Sin datos para este mes.</div>'; return; }
+    const vals = dias.map((d) => diaSemana[d]);
+    const cols = dias.map((d) => (d === 'Sábado' || d === 'Domingo') ? C.t : C.p);
+    $('#chart-resumen-semana').innerHTML = bv(dias, vals, C.p, 980, 290, 0, cols);
+  }
+
+  function renderFinDeSemana(F) {
+    const cont = $('#card-resumen-fs');
+    if (!F || !F.total) { cont.innerHTML = ''; return; }
+    const ff = Object.keys(F.porFecha).sort((a, b) => a - b);
+    const fLbl = ff.map((d) => `${F.porFecha[d].dow} ${d}`);
+    const fVal = ff.map((d) => F.porFecha[d].n);
+    const fCol = ff.map((d) => F.porFecha[d].dow === 'Sáb' ? C.t : '#5eead4');
+
+    const cEntries = Object.entries(F.creadores || {});
+    const cLbl = cEntries.map(([k]) => String(k).split(' ')[0]);
+    const cVal = cEntries.map(([, v]) => v);
+    const cref = cEntries.map(([k, v]) => [escapeHtml(k), v, `${(v / F.total * 100).toFixed(1)}%`]);
+
+    const pjf = [];
+    for (const [k, v] of Object.entries(F.proyectos || {})) {
+      if (v.total > 1) pjf.push([escapeHtml(nomProy(k)), v.fs, v.total, pctBarHtml(v.pct, C.t)]);
+    }
+    const trasf = Object.entries(F.traspasadas || {}).map(([k, v]) => [escapeHtml(k), v]);
+
+    cont.innerHTML =
+      `<div class="card wk"><h3>🗓️ Issues creadas en fin de semana <span class="note">· sábados y domingos · por fecha de creación</span></h3>` +
+      `<div class="tiles" style="margin-bottom:16px">` +
+      tile('Total fin de semana', F.total, '', `${F.pct}% del mes`) +
+      tile('Sábados', F.sab) + tile('Domingos', F.dom) +
+      tile('Media por día', F.porDiaFs, '', `vs ${F.porDiaLv} en laborable`) +
+      tile('Resueltas', F.resueltas, 'good', F.total ? `${(F.resueltas / F.total * 100).toFixed(1)}% de las de FS` : '') +
+      tile('Escaladas', F.escaladas, '', F.total ? `${(F.escaladas / F.total * 100).toFixed(1)}% de las de FS` : '') +
+      tile('Scoring', fmtScoring(F.scoring), '', 'sobre 10') +
+      `</div>` +
+      `<h4 class="h4">Volumen de cada fin de semana</h4>${bv(fLbl, fVal, C.t, 980, 250, 0, fCol)}` +
+      `<h4 class="h4" style="margin-top:16px">Quién crea las issues en fin de semana <span class="note">(campo Creador — quien está de turno)</span></h4>` +
+      bv(cLbl, cVal, C.t, 980, 250) +
+      `<div class="grid2" style="margin-top:6px"><div><h4 class="h4">Peso del fin de semana por proyecto</h4>` +
+      tablaHtml(['Proyecto', 'Fin de semana', 'Total mes', '% en FS'], pjf) + `</div>` +
+      `<div><h4 class="h4">Turno de fin de semana</h4>${tablaHtml(['Creador', 'Issues creadas', '% del FS'], cref)}</div></div>` +
+      (F.nTraspasadas ? `<h4 class="h4" style="margin-top:14px">Traspaso al equipo de laborables <span class="note">· ${F.nTraspasadas} de ${F.total} (${Math.round(F.nTraspasadas / F.total * 100)}%) acabaron asignadas a otra persona</span></h4>${tablaHtml(['Persona asignada después', 'Issues recibidas'], trasf)}` : '') +
+      `</div>`;
+  }
+
+  function renderProyecto(proyectos) {
+    const pl = Object.keys(proyectos || {});
+    const sp = pl.map(nomProy), pc = [], pr = [], pd = [], pfr = [];
+    for (const k of pl) { const p = proyectos[k]; pc.push(p.creadas); pr.push(p.resueltas); pd.push(p.diasEscalada); pfr.push(p.fcrPct); }
+    if (!pl.length) {
+      $('#chart-proyecto-bg').innerHTML = $('#chart-proyecto-dias').innerHTML = $('#chart-proyecto-fcr').innerHTML = '<div class="empty">Sin datos para este mes.</div>';
+      return;
+    }
+    $('#chart-proyecto-bg').innerHTML = bg(sp, pc, pr, 'Creada', 'Resuelta', 470, 300, 11);
+    $('#chart-proyecto-dias').innerHTML = bv(sp, pd, C.r, 470, 300, 2);
+    $('#chart-proyecto-fcr').innerHTML = bv(sp, pfr, C.g, 980, 290, 1);
+  }
+
+  function renderTecnico(tecnicos) {
+    const tl = Object.keys(tecnicos || {});
+    const sh = tl.map(corto), tc = [], tr2 = [], ts = [], td = [];
+    for (const k of tl) { const t = tecnicos[k]; tc.push(t.creadas); tr2.push(t.resueltas); ts.push(t.scoring || 0); td.push(t.diasEscalada); }
+    if (!tl.length) {
+      $('#chart-tecnico-bg').innerHTML = $('#chart-tecnico-scoring').innerHTML = $('#chart-tecnico-dias').innerHTML = '<div class="empty">Sin datos para este mes.</div>';
+      return;
+    }
+    $('#chart-tecnico-bg').innerHTML = bg(sh, tc, tr2, 'Asignada', 'Resuelta', 980, 320, 11);
+    $('#chart-tecnico-scoring').innerHTML = bv(sh, ts, C.a, 980, 290, 2);
+    $('#chart-tecnico-dias').innerHTML = bv(sh, td, C.r, 980, 290, 2);
+  }
+
   function renderEscaladasTiles(total) {
     $('#tiles-escaladas').innerHTML =
       tile('Escaladas', fmt(total.escaladas)) +
       tile('Días esc. (media)', total.diasEscalada) +
       tile('% sobre creadas', total.creadas ? `${round1((total.escaladas / total.creadas) * 100)}%` : '—');
   }
-  function round1(x) { return Math.round(x * 10) / 10; }
+
+  function renderEscaladasCharts(partners) {
+    const pk = Object.keys(partners || {});
+    if (!pk.length) {
+      $('#chart-escaladas-dias').innerHTML = $('#chart-escaladas-n').innerHTML = '<div class="empty">Sin escaladas este mes.</div>';
+      return;
+    }
+    const pdias = pk.map((k) => partners[k].dias), pn = pk.map((k) => partners[k].n);
+    $('#chart-escaladas-dias').innerHTML = bh(pk, pdias, pn);
+    $('#chart-escaladas-n').innerHTML = bv(pk.slice(0, 10), pn.slice(0, 10), C.p, 980, 290, 0);
+  }
 
   function renderTipologiaTiles(data) {
     $('#tiles-tipologia').innerHTML =
@@ -305,10 +551,51 @@
       tile('Sobre total', data.n ? `${round1((data.nCategorizadas / data.n) * 100)}%` : '—');
   }
 
+  function renderFamiliaCharts(familias) {
+    const fk = Object.keys(familias || {}).slice(0, 12);
+    if (!fk.length) {
+      $('#chart-familias-n').innerHTML = $('#chart-familias-esc').innerHTML = $('#chart-familias-fcr').innerHTML = '<div class="empty">Sin datos para este mes.</div>';
+      return;
+    }
+    const fN = fk.map((k) => familias[k].creadas);
+    const fE = fk.map((k) => familias[k].escaladas);
+    const fF = fk.map((k) => familias[k].fcrPct);
+    $('#chart-familias-n').innerHTML = bhz(fk, fN, C.p);
+    $('#chart-familias-esc').innerHTML = bhz(fk, fE, C.r);
+    $('#chart-familias-fcr').innerHTML = bhz(fk, fF, C.g, 980, 1, '%');
+  }
+
   function renderLocalesTiles(data) {
     $('#tiles-locales').innerHTML =
       tile('Con local asociado', fmt(data.nConLocal)) +
       tile('Sobre total', data.n ? `${round1((data.nConLocal / data.n) * 100)}%` : '—');
+  }
+
+  function renderReparto(R, reincidencia) {
+    const cont = $('#card-reparto');
+    if (!R || !R.locales) { cont.innerHTML = ''; return; }
+    const rt = [
+      ['Un solo reporte', R.uno, pctBarHtml(R.pctUno, C.g), R.volUno, `${R.pctVolUno}%`],
+      ['Dos reportes', R.dos, pctBarHtml(R.pctDos, C.b), R.dos * 2, `${R.pctVolDos}%`],
+      ['Entre 3 y 5', R.tresCinco, pctBarHtml(R.pctTresCinco, C.a), '—', '—'],
+      [`<b>6 o más</b>`, `<b>${R.seis}</b>`, pctBarHtml(R.pctSeis, C.r), `<b>${R.volSeis}</b>`, `<b>${R.pctVolSeis}%</b>`],
+    ];
+    cont.innerHTML =
+      `<h3>¿Cuántos locales reportan una sola vez? <span class="note">· en el periodo seleccionado</span></h3>` +
+      tablaHtml(['Frecuencia', 'Locales', '% de locales', 'Incidencias', '% del volumen'], rt) +
+      `<p class="note" style="margin-top:8px;white-space:normal;line-height:1.6">Los locales que reportan una sola vez son incidencias aisladas. Los que repiten 6 o más veces concentran el grueso del trabajo y son candidatos a revisión de equipamiento. Concentración: <b>${R.pareto20}%</b> del volumen está en los ${R.nPareto20} locales top (20%).</p>`;
+
+    const cont2 = $('#card-reincidencia');
+    if (!reincidencia || !reincidencia.top.length) { cont2.innerHTML = ''; return; }
+    const rif = reincidencia.top.map((r) => [escapeHtml(r.local), `<b style="color:${C.r}">${r.n}</b>`]);
+    cont2.innerHTML = `<div class="card"><h3>Mayor reincidencia este mes <span class="note">· locales con 3 o más incidencias</span></h3>${tablaHtml(['Local', 'Incidencias en el mes'], rif)}</div>`;
+  }
+
+  function renderLocalesTop(locales) {
+    const lk = Object.keys(locales || {}).slice(0, 15);
+    if (!lk.length) { $('#chart-locales-top').innerHTML = '<div class="empty">Sin datos para este mes.</div>'; return; }
+    const lv = lk.map((k) => locales[k].creadas);
+    $('#chart-locales-top').innerHTML = bhz(lk, lv, C.p);
   }
 
   async function loadDashboard() {
@@ -325,18 +612,29 @@
       setMsg(`${fmt(data.n)} incidencias creadas en ${data.month}.`, false);
 
       renderResumenTiles(data.total);
+      renderResumenDiario(data.porDia);
+      renderResumenSemana(data.diaSemana);
+      renderFinDeSemana(data.finDeSemana);
       tableFromBloqueMap(data.proyectos, 'Proyecto', $('#tabla-resumen-proyecto'));
+
       tableFromBloqueMap(data.proyectos, 'Proyecto', $('#tabla-proyecto'));
+      renderProyecto(data.proyectos);
+
       tableFromBloqueMap(data.tecnicos, 'Técnico', $('#tabla-tecnico'));
+      renderTecnico(data.tecnicos);
 
       renderEscaladasTiles(data.total);
+      renderEscaladasCharts(data.partners);
       tableFromPartners(data.partners, $('#tabla-partners'));
 
       renderTipologiaTiles(data);
       tableFromBloqueMap(data.familias, 'Familia', $('#tabla-familias'));
+      renderFamiliaCharts(data.familias);
       tableFromBloqueMap(data.categorias, 'Categoría', $('#tabla-categorias'));
 
       renderLocalesTiles(data);
+      renderReparto(data.reparto, data.reincidencia);
+      renderLocalesTop(data.locales);
       tableFromBloqueMap(data.locales, 'Local', $('#tabla-locales'));
     } catch (err) {
       setMsg('Error de conexión con el proxy: ' + err.message, true);
