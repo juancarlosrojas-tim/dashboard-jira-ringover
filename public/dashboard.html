@@ -208,7 +208,7 @@
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
 
   // Paleta fija (igual que el dashboard de referencia de carga manual).
-  const C = { b: '#60a5fa', g: '#10b981', a: '#f59e0b', p: '#a78bfa', r: '#ef4444', t: '#2dd4bf' };
+  const C = { b: '#60a5fa', g: '#10b981', a: '#f59e0b', p: '#a78bfa', r: '#ef4444', t: '#2dd4bf', rSoft: '#e29191' };
 
   // --- Tabs ---
   $$('nav.tabs button').forEach((btn) => {
@@ -523,7 +523,8 @@
       return;
     }
     $('#chart-tecnico-bg').innerHTML = bg(sh, tc, tr2, 'Asignada', 'Resuelta', 980, 320, 11);
-    $('#chart-tecnico-scoring').innerHTML = bv(sh, ts, C.a, 980, 290, 2);
+    const scoreCols = ts.map((v) => (v !== null && v !== undefined && v < 6) ? C.rSoft : C.a);
+    $('#chart-tecnico-scoring').innerHTML = bv(sh, ts, C.a, 980, 290, 2, scoreCols);
     $('#chart-tecnico-dias').innerHTML = bv(sh, td, C.r, 980, 290, 2);
   }
 
