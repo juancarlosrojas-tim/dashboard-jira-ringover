@@ -475,6 +475,13 @@ function dayRange(date) {
   return { start: date, end };
 }
 
+// Rango libre: "from" y "to" son ambos inclusive (el usuario elige el último
+// día que quiere ver, no el primero excluido).
+function customRange(from, to) {
+  const { end } = dayRange(to);
+  return { start: from, end };
+}
+
 function yearRange(year) {
   const y = Number(year);
   return { start: `${y}-01-01`, end: `${y + 1}-01-01` };
@@ -854,6 +861,7 @@ async function fetchIssuesForMonth(projectCode, month) {
 // Ejemplo: /api/jira/dashboard?month=2026-09  (mes concreto)
 //          /api/jira/dashboard?year=2026      (año completo, con evolución mensual)
 //          /api/jira/dashboard?date=2026-09-11 (un día concreto)
+//          /api/jira/dashboard?from=2026-09-01&to=2026-09-15 (rango libre, ambos inclusive)
 // Si no se pasa ninguno, usa el mes actual.
 app.get('/api/jira/dashboard', async (req, res) => {
   if (!JIRA_SITE_URL || !JIRA_EMAIL || !JIRA_API_TOKEN) {
@@ -862,9 +870,15 @@ app.get('/api/jira/dashboard', async (req, res) => {
 
   const yearParam = req.query.year;
   const dateParam = !yearParam ? req.query.date : null;
-  const month = (yearParam || dateParam) ? null : (req.query.month || currentMonthStr());
-  const { start, end } = yearParam ? yearRange(yearParam) : dateParam ? dayRange(dateParam) : monthRange(month);
-  const mode = yearParam ? 'year' : dateParam ? 'day' : 'month';
+  const fromParam = (!yearParam && !dateParam) ? req.query.from : null;
+  const toParam = (!yearParam && !dateParam) ? req.query.to : null;
+  const isRange = fromParam && toParam;
+  const month = (yearParam || dateParam || isRange) ? null : (req.query.month || currentMonthStr());
+  const { start, end } = yearParam ? yearRange(yearParam)
+    : dateParam ? dayRange(dateParam)
+    : isRange ? customRange(fromParam, toParam)
+    : monthRange(month);
+  const mode = yearParam ? 'year' : dateParam ? 'day' : isRange ? 'range' : 'month';
 
   try {
     const results = await Promise.all(PROJECTS.map(async (p) => {
@@ -880,7 +894,7 @@ app.get('/api/jira/dashboard', async (req, res) => {
     const partners = partnersBreakdown(allIssues);
     const { categorias, familias, nCategorizadas } = categoryBreakdown(allIssues);
     const { locales, nConLocal, reparto, reincidencia } = localesBreakdown(allIssues);
-    // El desglose día-a-día solo tiene sentido dentro de un único mes.
+    // El desglose día-a-día (por día DEL MES) solo tiene sentido dentro de un único mes.
     const porDia = mode === 'month' ? porDiaBreakdown(allIssues, month) : {};
     const diaSemana = diaSemanaBreakdown(allIssues);
     const finDeSemana = finDeSemanaBreakdown(allIssues);
@@ -892,6 +906,8 @@ app.get('/api/jira/dashboard', async (req, res) => {
       month,
       year: yearParam ? Number(yearParam) : null,
       date: dateParam || null,
+      from: isRange ? fromParam : null,
+      to: isRange ? toParam : null,
       n: allIssues.length,
       total,
       proyectos,
